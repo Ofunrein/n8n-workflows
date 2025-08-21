@@ -27,195 +27,62 @@ handler = Mangum(app)
 
 # Lightweight workflow database for Vercel
 class VercelWorkflowDB:
-    """Lightweight workflow database for Vercel serverless environment."""
+    """Lightweight workflow database using pre-built JSON data for Vercel serverless environment."""
     
     def __init__(self):
-        self.db_path = "/tmp/workflows.db"
-        self.workflows_dir = "workflows"
-        self._init_db()
-        self._cache_workflows()
+        self.data = self._load_data()
     
-    def _init_db(self):
-        """Initialize in-memory database."""
-        conn = sqlite3.connect(self.db_path)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS workflows (
-                id INTEGER PRIMARY KEY,
-                filename TEXT UNIQUE,
-                name TEXT,
-                active BOOLEAN,
-                description TEXT,
-                trigger_type TEXT,
-                complexity TEXT,
-                node_count INTEGER,
-                integrations TEXT,
-                tags TEXT,
-                created_at TEXT,
-                updated_at TEXT
-            )
-        """)
-        conn.commit()
-        conn.close()
-    
-    def _get_file_hash(self, file_path: str) -> str:
-        """Get hash of file."""
+    def _load_data(self):
+        """Load pre-built workflow data from JSON file."""
         try:
-            hash_md5 = hashlib.md5()
-            with open(file_path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hash_md5.update(chunk)
-            return hash_md5.hexdigest()
-        except:
-            return ""
-    
-    def _format_workflow_name(self, filename: str) -> str:
-        """Convert filename to readable name."""
-        name = filename.replace('.json', '')
-        parts = name.split('_')
-        if len(parts) > 1 and parts[0].isdigit():
-            parts = parts[1:]
-        return ' '.join(part.capitalize() for part in parts)
-    
-    def _analyze_workflow_file(self, file_path: str) -> Optional[Dict]:
-        """Analyze a workflow file."""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except:
-            return None
-        
-        filename = os.path.basename(file_path)
-        nodes = data.get('nodes', [])
-        
-        # Analyze nodes for integrations and trigger type
-        integrations = set()
-        trigger_type = 'Manual'
-        
-        for node in nodes:
-            node_type = node.get('type', '').lower()
-            if 'webhook' in node_type:
-                trigger_type = 'Webhook'
-            elif 'cron' in node_type or 'schedule' in node_type:
-                trigger_type = 'Scheduled'
-            
-            # Extract service name
-            if node_type.startswith('n8n-nodes-base.'):
-                service = node_type.replace('n8n-nodes-base.', '').replace('trigger', '')
-                service_map = {
-                    'telegram': 'Telegram', 'slack': 'Slack', 'gmail': 'Gmail',
-                    'googledrive': 'Google Drive', 'googlesheets': 'Google Sheets',
-                    'webhook': 'Webhook', 'httprequest': 'HTTP Request'
-                }
-                if service in service_map:
-                    integrations.add(service_map[service])
-        
-        node_count = len(nodes)
-        complexity = 'low' if node_count <= 5 else 'medium' if node_count <= 15 else 'high'
-        
-        return {
-            'filename': filename,
-            'name': data.get('name', self._format_workflow_name(filename)),
-            'active': data.get('active', False),
-            'description': f"Workflow with {node_count} nodes using {', '.join(list(integrations)[:3]) if integrations else 'basic operations'}",
-            'trigger_type': trigger_type,
-            'complexity': complexity,
-            'node_count': node_count,
-            'integrations': list(integrations),
-            'tags': data.get('tags', []),
-            'created_at': data.get('createdAt', ''),
-            'updated_at': data.get('updatedAt', '')
-        }
-    
-    def _cache_workflows(self):
-        """Cache workflow data in database."""
-        if not os.path.exists(self.workflows_dir):
-            return
-        
-        conn = sqlite3.connect(self.db_path)
-        workflows_path = Path(self.workflows_dir)
-        json_files = list(workflows_path.rglob("*.json"))
-        
-        for file_path in json_files[:100]:  # Limit for Vercel
-            workflow = self._analyze_workflow_file(str(file_path))
-            if workflow:
-                conn.execute("""
-                    INSERT OR REPLACE INTO workflows 
-                    (filename, name, active, description, trigger_type, complexity, 
-                     node_count, integrations, tags, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    workflow['filename'], workflow['name'], workflow['active'],
-                    workflow['description'], workflow['trigger_type'], workflow['complexity'],
-                    workflow['node_count'], json.dumps(workflow['integrations']),
-                    json.dumps(workflow['tags']), workflow['created_at'], workflow['updated_at']
-                ))
-        
-        conn.commit()
-        conn.close()
+            data_file = 'vercel_workflows.json'
+            if os.path.exists(data_file):
+                with open(data_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            else:
+                print(f"Warning: {data_file} not found, using empty data")
+                return {'stats': {}, 'workflows': []}
+        except Exception as e:
+            print(f"Error loading workflow data: {e}")
+            return {'stats': {}, 'workflows': []}
     
     def get_stats(self):
         """Get workflow statistics."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        
-        cursor = conn.execute("SELECT COUNT(*) as total FROM workflows")
-        total = cursor.fetchone()['total']
-        
-        cursor = conn.execute("SELECT COUNT(*) as active FROM workflows WHERE active = 1")
-        active = cursor.fetchone()['active']
-        
-        cursor = conn.execute("SELECT trigger_type, COUNT(*) as count FROM workflows GROUP BY trigger_type")
-        triggers = {row['trigger_type']: row['count'] for row in cursor.fetchall()}
-        
-        cursor = conn.execute("SELECT complexity, COUNT(*) as count FROM workflows GROUP BY complexity")
-        complexity = {row['complexity']: row['count'] for row in cursor.fetchall()}
-        
-        cursor = conn.execute("SELECT SUM(node_count) as total_nodes FROM workflows")
-        total_nodes = cursor.fetchone()['total_nodes'] or 0
-        
-        conn.close()
-        
-        return {
-            'total': total,
-            'active': active,
-            'inactive': total - active,
-            'triggers': triggers,
-            'complexity': complexity,
-            'total_nodes': total_nodes,
-            'unique_integrations': 50,  # Approximate
+        return self.data.get('stats', {
+            'total': 0,
+            'active': 0,
+            'inactive': 0,
+            'triggers': {},
+            'complexity': {},
+            'total_nodes': 0,
+            'unique_integrations': 0,
             'last_indexed': '2025-08-21'
-        }
+        })
     
     def search_workflows(self, query='', limit=20, offset=0):
-        """Search workflows."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        """Search workflows from pre-built data."""
+        workflows = self.data.get('workflows', [])
         
-        if query:
-            cursor = conn.execute("""
-                SELECT * FROM workflows 
-                WHERE name LIKE ? OR description LIKE ?
-                LIMIT ? OFFSET ?
-            """, (f'%{query}%', f'%{query}%', limit, offset))
-            count_cursor = conn.execute("""
-                SELECT COUNT(*) as total FROM workflows 
-                WHERE name LIKE ? OR description LIKE ?
-            """, (f'%{query}%', f'%{query}%'))
+        # Filter by query if provided
+        if query.strip():
+            query_lower = query.lower()
+            filtered_workflows = [
+                w for w in workflows 
+                if query_lower in w.get('name', '').lower() or 
+                   query_lower in w.get('description', '').lower() or
+                   any(query_lower in integration.lower() for integration in w.get('integrations', []))
+            ]
         else:
-            cursor = conn.execute("SELECT * FROM workflows LIMIT ? OFFSET ?", (limit, offset))
-            count_cursor = conn.execute("SELECT COUNT(*) as total FROM workflows")
+            filtered_workflows = workflows
         
-        results = []
-        for row in cursor.fetchall():
-            workflow = dict(row)
-            workflow['integrations'] = json.loads(workflow['integrations'] or '[]')
-            workflow['tags'] = json.loads(workflow['tags'] or '[]')
-            results.append(workflow)
+        total = len(filtered_workflows)
         
-        total = count_cursor.fetchone()['total']
-        conn.close()
+        # Apply pagination
+        start = offset
+        end = offset + limit
+        paginated_workflows = filtered_workflows[start:end]
         
-        return results, total
+        return paginated_workflows, total
 
 # Initialize database
 db = VercelWorkflowDB()
