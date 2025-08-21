@@ -1,0 +1,44 @@
+# 🔄 Upstream Sync Configuration
+# This file defines which files and directories to protect during upstream sync
+
+# Protected files/directories (will not be overwritten by upstream)
+PROTECTED_FILES=(
+    ".gitignore"                    # Our custom gitignore with RE HTML templates
+    "vercel.json"                   # Vercel deployment configuration
+    "api/"                          # Our Vercel serverless function
+    "requirements.txt"              # Our Python dependencies
+    "RE HTML email_templates copy/" # Your email templates (excluded from git)
+    ".github/workflows/"            # Our GitHub Actions workflows
+    "sync-upstream.sh"              # This sync script
+    ".syncconfig"                   # This configuration file
+    "run.py"                        # Our local server script (if customized)
+)
+
+# Directories to always sync from upstream
+SYNC_DIRECTORIES=(
+    "workflows/"                    # Always get latest workflows
+    "Documentation/"                # Always sync documentation
+    "src/"                          # Sync source files
+    "static/"                       # Sync static files (but preserve our changes)
+)
+
+# Files to always sync from upstream
+SYNC_FILES=(
+    "README.md"                     # Always sync main readme
+    "README_ZH.md"                  # Always sync Chinese readme
+    "CLAUDE.md"                     # Always sync AI assistant docs
+    "CLAUDE_ZH.md"                  # Always sync Chinese AI docs
+    "api_server.py"                 # Sync main API server (but check for conflicts)
+    "workflow_db.py"                # Sync database handler
+    "create_categories.py"          # Sync category creator
+    "build_vercel_data.py"          # Sync Vercel data builder
+)
+
+# Automatic actions on workflow changes
+AUTO_REBUILD_DB=true               # Automatically rebuild database on workflow changes
+AUTO_BUILD_VERCEL_DATA=true        # Automatically rebuild Vercel data
+AUTO_COMMIT_DB=true                # Automatically commit database changes
+
+# Notification settings
+NOTIFY_ON_SYNC=true                # Show notification when sync completes
+SHOW_DIFF_SUMMARY=true             # Show summary of changes during sync

@@ -1,0 +1,173 @@
+name: 🔄 Sync Upstream & Auto-Deploy to Vercel
+
+on:
+  # Run every 6 hours to check for updates
+  schedule:
+    - cron: '0 */6 * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚀 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: 🔧 Configure Git
+      run: |
+        git config user.name "Auto Sync Bot"
+        git config user.email "actions@github.com"
+
+    - name: 📡 Add Upstream Remote
+      run: |
+        git remote add upstream https://github.com/Zie619/n8n-workflows.git || true
+        git fetch upstream main
+
+    - name: 🔍 Check for Updates
+      id: check_updates
+      run: |
+        # Get latest commit from upstream
+        UPSTREAM_COMMIT=$(git rev-parse upstream/main)
+        CURRENT_COMMIT=$(git rev-parse HEAD)
+        
+        echo "upstream_commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+        echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+        
+        # Check if there are new commits
+        if [ "$UPSTREAM_COMMIT" != "$CURRENT_COMMIT" ]; then
+          echo "has_updates=true" >> $GITHUB_OUTPUT
+          echo "🆕 New updates detected from upstream!"
+        else
+          echo "has_updates=false" >> $GITHUB_OUTPUT
+          echo "✅ No new updates from upstream"
+        fi
+        
+        # Check for workflow changes specifically
+        WORKFLOW_CHANGES=$(git diff HEAD upstream/main --name-only | grep "^workflows/" | wc -l)
+        echo "workflow_changes=$WORKFLOW_CHANGES" >> $GITHUB_OUTPUT
+        
+        if [ "$WORKFLOW_CHANGES" -gt 0 ]; then
+          echo "🔄 Found $WORKFLOW_CHANGES workflow file changes"
+        fi
+
+    - name: 🔄 Sync Upstream Changes
+      if: steps.check_updates.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true'
+      run: |
+        # Create a temporary branch for syncing
+        git checkout -b sync-upstream-$(date +%Y%m%d-%H%M%S)
+        
+        # Merge upstream changes, giving priority to our custom files
+        git merge upstream/main --strategy=ours --no-edit || {
+          echo "❌ Merge conflict detected, handling manually..."
+          git status
+          
+          # Reset to our version for protected files
+          git checkout HEAD -- .gitignore vercel.json api/ requirements.txt || true
+          git checkout HEAD -- "RE HTML email_templates copy/" || true
+          
+          # Continue the merge
+          git add .
+          git commit -m "🔄 Auto-sync: Merge upstream with protected customizations" || true
+        }
+        
+        # Merge specific directories we want to keep updated
+        git checkout upstream/main -- workflows/ || true
+        git checkout upstream/main -- Documentation/ || true
+        git checkout upstream/main -- README.md README_ZH.md || true
+        
+        # Preserve our custom files
+        git checkout HEAD -- .gitignore vercel.json api/ requirements.txt || true
+        git checkout HEAD -- "RE HTML email_templates copy/" || true
+        
+        # Add any new changes
+        git add .
+        
+        # Commit if there are changes
+        if git diff --staged --quiet; then
+          echo "✅ No changes to commit"
+        else
+          git commit -m "🔄 Auto-sync: Update workflows and docs from upstream ($(git rev-parse --short upstream/main))"
+        fi
+
+    - name: 🗃️ Rebuild Database
+      if: steps.check_updates.outputs.workflow_changes > 0 || github.event.inputs.force_sync == 'true'
+      run: |
+        # Set up Python
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+        # Rebuild the workflow database
+        python -c "
+        from workflow_db import WorkflowDatabase
+        import os
+        
+        print('🔄 Rebuilding workflow database...')
+        db = WorkflowDatabase('database/workflows.db')
+        stats = db.index_all_workflows(force_reindex=True)
+        print(f'✅ Database rebuilt: {stats}')
+        "
+        
+        # Rebuild Vercel data
+        python build_vercel_data.py
+        
+        # Commit database updates
+        git add database/ vercel_workflows.json || true
+        git commit -m "🗃️ Auto-update: Rebuild database with new workflows" || true
+
+    - name: 🚀 Push Changes
+      if: steps.check_updates.outputs.has_updates == 'true' || github.event.inputs.force_sync == 'true'
+      run: |
+        # Switch back to main branch
+        git checkout main
+        
+        # Merge our sync branch
+        git merge --no-ff sync-upstream-* -m "🔄 Auto-sync: Integrate upstream updates"
+        
+        # Push to our repository (this will trigger Vercel deployment)
+        git push origin main
+        
+        # Clean up sync branch
+        git branch -D sync-upstream-* || true
+
+    - name: 📊 Create Summary
+      if: always()
+      run: |
+        echo "## 🔄 Upstream Sync Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Upstream Commit**: ${{ steps.check_updates.outputs.upstream_commit }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Has Updates**: ${{ steps.check_updates.outputs.has_updates }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Workflow Changes**: ${{ steps.check_updates.outputs.workflow_changes }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: $([ '${{ job.status }}' = 'success' ] && echo '✅ Success' || echo '❌ Failed')" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.check_updates.outputs.workflow_changes }}" -gt 0 ]; then
+          echo "- **🎯 Result**: New workflows synced and database rebuilt!" >> $GITHUB_STEP_SUMMARY
+          echo "- **🚀 Vercel**: Automatic deployment triggered" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ steps.check_updates.outputs.has_updates }}" = 'true' ]; then
+          echo "- **📄 Result**: Documentation and non-workflow files updated" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **✅ Result**: Repository is up to date" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  # Notification job (optional)
+  notify:
+    needs: sync-upstream
+    runs-on: ubuntu-latest
+    if: always() && (needs.sync-upstream.result == 'success' && github.event.schedule)
+    
+    steps:
+    - name: 📧 Success Notification
+      if: needs.sync-upstream.result == 'success'
+      run: |
+        echo "✅ Upstream sync completed successfully!"
+        echo "🔗 Check your Vercel deployment: https://vercel.com/dashboard"

@@ -66,5 +66,10 @@ tmp/
 # RE HTML email templates (local development only)
 RE HTML email_templates copy/
 
+# Sync backups (temporary files created during upstream sync)
+backup-before-sync-*/
+sync-upstream-*/
+*.protected
+
 # Vercel
 .vercel
