@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
+from mangum import Mangum
 
 app = FastAPI()
+
+# Create the handler for Vercel
+handler = Mangum(app)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
