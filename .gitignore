@@ -63,5 +63,8 @@ logs/
 temp/
 tmp/
 
+# RE HTML email templates (local development only)
+RE HTML email_templates copy/
+
 # Vercel
 .vercel

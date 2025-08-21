@@ -233,19 +233,19 @@ def analyze_workflow_file(file_path: str) -> Optional[Dict[str, Any]]:
         'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else 0
     }
 
-def build_vercel_data():
-    """Build workflow data for Vercel deployment."""
+def build_vercel_data_dict():
+    """Build workflow data for Vercel deployment and return as dictionary."""
     workflows_dir = "workflows"
     if not os.path.exists(workflows_dir):
         print(f"Warning: Workflows directory '{workflows_dir}' not found.")
-        return
+        return {'stats': {}, 'workflows': []}
     
     workflows_path = Path(workflows_dir)
     json_files = list(workflows_path.rglob("*.json"))
     
     if not json_files:
         print(f"Warning: No JSON files found in '{workflows_dir}' directory.")
-        return
+        return {'stats': {}, 'workflows': []}
     
     print(f"Processing {len(json_files)} workflow files...")
     
@@ -303,18 +303,25 @@ def build_vercel_data():
         'version': '1.0'
     }
     
+    return vercel_data
+
+def build_vercel_data():
+    """Build workflow data for Vercel deployment."""
+    vercel_data = build_vercel_data_dict()
+    
     # Write to JSON file
     output_file = 'vercel_workflows.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(vercel_data, f, separators=(',', ':'))  # Compact format
     
     file_size = os.path.getsize(output_file) / (1024 * 1024)  # MB
+    stats = vercel_data['stats']
     
     print(f"✅ Built Vercel data: {output_file}")
-    print(f"📊 Processed: {total} workflows, {errors} errors")
+    print(f"📊 Processed: {stats['total']} workflows")
     print(f"📁 File size: {file_size:.1f} MB")
-    print(f"🔢 Statistics: {total} total, {active} active, {total_nodes:,} nodes")
-    print(f"🔌 Unique integrations: {len(all_integrations)}")
+    print(f"🔢 Statistics: {stats['total']} total, {stats['active']} active, {stats['total_nodes']:,} nodes")
+    print(f"🔌 Unique integrations: {stats['unique_integrations']}")
 
 if __name__ == "__main__":
     build_vercel_data()
