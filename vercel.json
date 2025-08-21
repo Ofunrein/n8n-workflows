@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "name": "n8n-workflows-api",
+  "builds": [
+    {
+      "src": "vercel_app.py",
+      "use": "@vercel/python@3.1"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "vercel_app.py"
+    }
+  ],
+  "env": {
+    "WORKFLOW_DB_PATH": "/tmp/workflows.db",
+    "PYTHONPATH": "."
+  },
+  "functions": {
+    "vercel_app.py": {
+      "maxDuration": 30,
+      "runtime": "python3.9"
+    }
+  },
+  "buildCommand": "pip install -r requirements-vercel.txt"
+}

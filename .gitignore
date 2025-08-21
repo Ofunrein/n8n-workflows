@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 .env
@@ -29,6 +30,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+database/
+*.db-journal
+
 # IDE
 .vscode/
 .idea/
@@ -38,56 +46,22 @@ venv.bak/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Application specific
-database/workflows.db
-database/workflows.db-*
+# Logs
 *.log
+logs/
 
 # Temporary files
 *.tmp
 *.temp
-
-# Development artifacts
-*.log
-*.tmp
 temp/
 tmp/
-.cache/
 
-# Documentation artifacts (generated)
-workflow-documentation.html
-
-# Test files
-test_*.json
-*_test.json
-
-# Backup files
-*.bak
-*.backup
-
-# Workflow backup directories (created during renaming)
-workflow_backups/
-
-# Database files (SQLite)
-*.db
-*.sqlite
-*.sqlite3
-
-# Rename logs
-workflow_rename_log.json
-
-# Node.js artifacts (if using npm)
-node_modules/
-package-lock.json
-
-#db
-*.db-shm
-*.db-wal
-
-# versions
-.python-version
-
-# Claude Code local settings (created during development)
-.claude/settings.local.json
+# Vercel
+.vercel
