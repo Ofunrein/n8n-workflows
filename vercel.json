@@ -3,7 +3,7 @@
   "builds": [
     {
       "src": "vercel_app.py",
-      "use": "@vercel/python@3.1"
+      "use": "@vercel/python"
     }
   ],
   "routes": [
@@ -15,6 +15,5 @@
   "env": {
     "WORKFLOW_DB_PATH": "/tmp/workflows.db",
     "PYTHONPATH": "."
-  },
-  "buildCommand": "pip install -r requirements-vercel.txt"
+  }
 }
