@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚡ N8N Workflow Documentation</title>
+  <title>N8N Workflow Automation Templates | Lumenosis</title>
+  <meta name="description" content="Browse, search and filter a comprehensive collection of production-ready N8N workflow automation templates. Find automation solutions, documentation, and best practices for your business needs.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
   <style>
     /* Modern CSS Reset and Base */
@@ -15,30 +17,53 @@
     }
 
     :root {
-      --primary: #3b82f6;
-      --primary-dark: #2563eb;
+      /* Lumenosis Brand Colors */
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --primary-light: #6366f1;
+      --accent: #06b6d4;
+      --accent-dark: #0891b2;
       --success: #10b981;
       --warning: #f59e0b;
       --error: #ef4444;
+      
+      /* Light Theme */
       --bg: #ffffff;
       --bg-secondary: #f8fafc;
       --bg-tertiary: #f1f5f9;
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --bg-card: #ffffff;
       --text: #1e293b;
       --text-secondary: #64748b;
       --text-muted: #94a3b8;
       --border: #e2e8f0;
+      --border-hover: #cbd5e1;
+      
+      /* Enhanced Shadows */
       --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
       --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      
+      /* Modern Glass Effect */
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.2);
+      --backdrop-blur: blur(10px);
     }
 
     [data-theme="dark"] {
       --bg: #0f172a;
       --bg-secondary: #1e293b;
       --bg-tertiary: #334155;
+      --bg-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      --bg-card: #1e293b;
       --text: #f8fafc;
       --text-secondary: #cbd5e1;
       --text-muted: #64748b;
       --border: #475569;
+      --border-hover: #64748b;
+      --glass-bg: rgba(30, 41, 59, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.1);
     }
 
     body {
@@ -55,25 +80,87 @@
       padding: 0 1rem;
     }
 
-    /* Header */
+    /* Enhanced Header with Gradient */
     .header {
-      background: var(--bg-secondary);
+      background: var(--bg-gradient);
       border-bottom: 1px solid var(--border);
-      padding: 2rem 0;
+      padding: 3rem 0;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.03"><circle cx="7" cy="7" r="2"/><circle cx="23" cy="7" r="2"/><circle cx="39" cy="7" r="2"/><circle cx="7" cy="23" r="2"/><circle cx="23" cy="23" r="2"/><circle cx="39" cy="23" r="2"/><circle cx="7" cy="39" r="2"/><circle cx="23" cy="39" r="2"/><circle cx="39" cy="39" r="2"/></g></g></svg>') repeat;
+      opacity: 0.5;
+    }
+
+    .header-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-link {
+      display: inline-block;
+      text-decoration: none;
+      margin-bottom: 1rem;
+      transition: transform 0.2s ease;
+    }
+
+    .brand-link:hover {
+      transform: translateY(-2px);
+    }
+
+    .lumenosis-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: var(--backdrop-blur);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      color: white;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .lumenosis-badge:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg);
     }
 
     .title {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: var(--primary);
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      line-height: 1.1;
+      background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .subtitle {
-      font-size: 1.125rem;
-      color: var(--text-secondary);
-      margin-bottom: 2rem;
+      font-size: 1.25rem;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 2.5rem;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      font-weight: 400;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .stats {
@@ -85,21 +172,36 @@
 
     .stat {
       text-align: center;
-      min-width: 100px;
+      min-width: 120px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: var(--backdrop-blur);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 1rem;
+      padding: 1.5rem 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .stat:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
     }
 
     .stat-number {
       display: block;
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: var(--primary);
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      margin-bottom: 0.25rem;
     }
 
     .stat-label {
       font-size: 0.875rem;
-      color: var(--text-muted);
+      color: rgba(255, 255, 255, 0.8);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.1em;
+      font-weight: 600;
     }
 
     /* Controls */
@@ -180,6 +282,126 @@
       color: var(--text-secondary);
     }
 
+    /* Quick Category Navigation */
+    .quick-categories {
+      background: var(--bg-secondary);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .quick-categories-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .category-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    .category-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 2rem;
+      padding: 0.5rem 1rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .category-btn:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .category-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Footer */
+    .footer {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      padding: 3rem 0 2rem;
+      margin-top: 4rem;
+      text-align: center;
+    }
+
+    .footer-content {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .footer-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--primary);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 2rem;
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .footer-brand:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .footer-description {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s ease;
+    }
+
+    .footer-link:hover {
+      color: var(--primary);
+    }
+
+    .footer-copyright {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
     /* Main Content */
     .main {
       padding: 2rem 0;
@@ -222,28 +444,47 @@
       background: var(--primary-dark);
     }
 
-    /* Workflow Grid */
+    /* Enhanced Workflow Grid */
     .workflow-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
       gap: 1.5rem;
     }
 
     .workflow-card {
-      background: var(--bg-secondary);
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 0.75rem;
+      border-radius: 1rem;
       padding: 1.5rem;
-      box-shadow: var(--shadow);
-      transition: all 0.2s ease;
+      box-shadow: var(--shadow-md);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
       position: relative;
+      overflow: hidden;
+    }
+
+    .workflow-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
 
     .workflow-card:hover {
-      box-shadow: var(--shadow-lg);
-      border-color: var(--primary);
-      transform: translateY(-2px);
+      box-shadow: var(--shadow-xl);
+      border-color: var(--primary-light);
+      transform: translateY(-4px);
+      background: var(--glass-bg);
+      backdrop-filter: var(--backdrop-blur);
+    }
+
+    .workflow-card:hover::before {
+      opacity: 1;
     }
 
     .workflow-header {
@@ -579,9 +820,15 @@
   <div id="app">
     <!-- Header -->
     <header class="header">
-      <div class="container">
-        <h1 class="title">⚡ N8N Workflow Documentation</h1>
-        <p class="subtitle">Lightning-fast workflow browser with instant search</p>
+      <div class="container header-content">
+        <a href="https://lumenosis.com" target="_blank" rel="noopener" class="brand-link">
+          <div class="lumenosis-badge">
+            <span>⚡</span>
+            <span>Powered by Lumenosis</span>
+          </div>
+        </a>
+        <h1 class="title">All n8n Workflow<br>Automation Templates</h1>
+        <p class="subtitle">Browse, search and filter a comprehensive collection of production-ready N8N workflow Automation templates. Find automation solutions, documentation, and best practices for your business needs.</p>
         <div class="stats">
           <div class="stat">
             <span class="stat-number" id="totalCount">0</span>
@@ -649,6 +896,14 @@
           </div>
 
           <button id="themeToggle" class="theme-toggle">🌙</button>
+        </div>
+
+        <!-- Quick Category Navigation -->
+        <div class="quick-categories" id="quickCategories">
+          <div class="quick-categories-title">Quick Category Navigation</div>
+          <div class="category-buttons" id="categoryButtons">
+            <!-- Category buttons will be populated dynamically -->
+          </div>
         </div>
 
         <div class="results-info">
@@ -748,6 +1003,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <a href="https://lumenosis.com" target="_blank" rel="noopener" class="footer-brand">
+            <span>⚡</span>
+            <span>Visit Lumenosis.com</span>
+          </a>
+          <p class="footer-description">
+            Professional automation solutions and workflow consulting. We help businesses streamline operations with custom n8n implementations and enterprise automation strategies.
+          </p>
+          <div class="footer-links">
+            <a href="https://lumenosis.com/services" target="_blank" rel="noopener" class="footer-link">Services</a>
+            <a href="https://lumenosis.com/about" target="_blank" rel="noopener" class="footer-link">About</a>
+            <a href="https://lumenosis.com/contact" target="_blank" rel="noopener" class="footer-link">Contact</a>
+            <a href="https://github.com/Ofunrein/n8n-workflows" target="_blank" rel="noopener" class="footer-link">GitHub</a>
+          </div>
+          <div class="footer-copyright">
+            © 2025 Lumenosis. This collection is automatically synchronized with the latest n8n community workflows. Visit the original <a href="https://github.com/Zie619/n8n-workflows" target="_blank" rel="noopener" style="color: var(--primary);">source repository</a> for contributions.
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <script>
@@ -779,6 +1058,8 @@
           categoryFilter: document.getElementById('categoryFilter'),
           activeOnlyFilter: document.getElementById('activeOnly'),
           themeToggle: document.getElementById('themeToggle'),
+          quickCategories: document.getElementById('quickCategories'),
+          categoryButtons: document.getElementById('categoryButtons'),
           resultsCount: document.getElementById('resultsCount'),
           workflowGrid: document.getElementById('workflowGrid'),
           loadMoreContainer: document.getElementById('loadMoreContainer'),
@@ -1062,6 +1343,50 @@
         });
         
         console.log(`Category filter populated with ${select.options.length - 1} categories`);
+        
+        // Also populate quick category buttons
+        this.populateQuickCategories();
+      }
+
+      populateQuickCategories() {
+        const container = this.elements.categoryButtons;
+        if (!container) return;
+        
+        // Clear existing buttons
+        container.innerHTML = '';
+        
+        // Add "All" button
+        const allButton = document.createElement('button');
+        allButton.className = 'category-btn active';
+        allButton.textContent = 'All Templates';
+        allButton.addEventListener('click', () => this.selectQuickCategory('all', allButton));
+        container.appendChild(allButton);
+        
+        // Add category buttons (limit to top categories for clean UI)
+        const topCategories = this.state.categories.slice(0, 12);
+        topCategories.forEach(category => {
+          const button = document.createElement('button');
+          button.className = 'category-btn';
+          button.textContent = category;
+          button.addEventListener('click', () => this.selectQuickCategory(category, button));
+          container.appendChild(button);
+        });
+      }
+
+      selectQuickCategory(category, buttonElement) {
+        // Update category filter
+        this.elements.categoryFilter.value = category;
+        this.state.filters.category = category;
+        this.state.currentPage = 1;
+        
+        // Update button states
+        this.elements.categoryButtons.querySelectorAll('.category-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        buttonElement.classList.add('active');
+        
+        // Trigger search
+        this.resetAndSearch();
       }
 
       async loadWorkflows(reset = false) {

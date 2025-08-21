@@ -12,6 +12,8 @@ PROTECTED_FILES=(
     "sync-upstream.sh"              # This sync script
     ".syncconfig"                   # This configuration file
     "run.py"                        # Our local server script (if customized)
+    "static/index.html"             # Our custom Lumenosis-branded interface
+    "UPSTREAM-SYNC.md"              # Our sync documentation
 )
 
 # Directories to always sync from upstream

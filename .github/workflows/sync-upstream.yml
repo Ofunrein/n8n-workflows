@@ -87,9 +87,12 @@ jobs:
         git checkout upstream/main -- Documentation/ || true
         git checkout upstream/main -- README.md README_ZH.md || true
         
-        # Preserve our custom files
+        # Preserve our custom files including Lumenosis branding
         git checkout HEAD -- .gitignore vercel.json api/ requirements.txt || true
         git checkout HEAD -- "RE HTML email_templates copy/" || true
+        git checkout HEAD -- static/index.html || true
+        git checkout HEAD -- .github/workflows/ || true
+        git checkout HEAD -- sync-upstream.sh .syncconfig UPSTREAM-SYNC.md || true
         
         # Add any new changes
         git add .
