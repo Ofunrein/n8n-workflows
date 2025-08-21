@@ -14,6 +14,7 @@ PROTECTED_FILES=(
     "run.py"                        # Our local server script (if customized)
     "static/index.html"             # Our custom Lumenosis-branded interface
     "UPSTREAM-SYNC.md"              # Our sync documentation
+    "README.md"                     # Our clean README without coffee/support section
 )
 
 # Directories to always sync from upstream
@@ -26,7 +27,6 @@ SYNC_DIRECTORIES=(
 
 # Files to always sync from upstream
 SYNC_FILES=(
-    "README.md"                     # Always sync main readme
     "README_ZH.md"                  # Always sync Chinese readme
     "CLAUDE.md"                     # Always sync AI assistant docs
     "CLAUDE_ZH.md"                  # Always sync Chinese AI docs
