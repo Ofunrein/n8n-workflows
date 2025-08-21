@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from mangum import Mangum
+# Removed mangum import - Vercel can handle FastAPI directly
 
 # Create FastAPI app
 app = FastAPI(
@@ -171,5 +171,5 @@ static_dir = project_root / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Create the handler for Vercel
-handler = Mangum(app)
+# Export the app directly for Vercel
+# Vercel's Python runtime will automatically handle the FastAPI app
