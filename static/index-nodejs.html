@@ -1493,9 +1493,61 @@
       }
     }
 
+    // Animated counting for stats
+    function animateCount(element, target, duration = 2000) {
+      let start = 0;
+      const increment = target / (duration / 16); // 60fps
+      const startTime = Date.now();
+      
+      function updateCount() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function for smooth animation
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const current = Math.floor(target * easeOutQuart);
+        
+        element.textContent = current.toLocaleString();
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateCount);
+        } else {
+          element.textContent = target.toLocaleString();
+        }
+      }
+      
+      updateCount();
+    }
+
+    // Initialize stats animation
+    function initStatsAnimation() {
+      // Wait for stats to be visible, then animate
+      const statsObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Animate each stat with staggered timing
+            setTimeout(() => animateCount(document.getElementById('totalCount'), 2055), 100);
+            setTimeout(() => animateCount(document.getElementById('activeCount'), 215), 300);
+            setTimeout(() => animateCount(document.getElementById('nodeCount'), 29518), 500);
+            setTimeout(() => animateCount(document.getElementById('integrationCount'), 365), 700);
+            
+            // Only animate once
+            statsObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.5 });
+      
+      // Observe the stats section
+      const statsSection = document.querySelector('.stats');
+      if (statsSection) {
+        statsObserver.observe(statsSection);
+      }
+    }
+
     // Initialize the app
     document.addEventListener('DOMContentLoaded', () => {
       window.workflowApp = new WorkflowApp();
+      initStatsAnimation();
     });
   </script>
   
