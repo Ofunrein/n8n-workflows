@@ -204,10 +204,8 @@ async def get_workflow_detail(filename: str):
         
         workflow_meta = workflows[0]
         
-        # file_path = Path(__file__).parent / "workflows" / workflow_meta.name / filename
-        # print(f"当前工作目录: {workflow_meta}")
-        # Load raw JSON from file
-        workflows_path = Path('workflows')
+        # Load raw JSON from file using absolute path
+        workflows_path = Path(__file__).parent / "workflows"
         json_files = list(workflows_path.rglob("*.json"))
         file_path = [f for f in json_files if f.name == filename][0]
         if not file_path.exists():
@@ -230,7 +228,7 @@ async def get_workflow_detail(filename: str):
 async def download_workflow(filename: str):
     """Download workflow JSON file."""
     try:
-        workflows_path = Path('workflows')
+        workflows_path = Path(__file__).parent / "workflows"
         json_files = list(workflows_path.rglob("*.json"))
         file_path = [f for f in json_files if f.name == filename][0]
         if not os.path.exists(file_path):
@@ -252,10 +250,10 @@ async def download_workflow(filename: str):
 async def get_workflow_diagram(filename: str):
     """Get Mermaid diagram code for workflow visualization."""
     try:
-        workflows_path = Path('workflows')
+        workflows_path = Path(__file__).parent / "workflows"
         json_files = list(workflows_path.rglob("*.json"))
         file_path = [f for f in json_files if f.name == filename][0]
-        print(f'{file_path}')
+        print(f'Loading diagram from: {file_path}')
         if not file_path.exists():
             print(f"Warning: Diagram requested for missing file: {file_path}")
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
