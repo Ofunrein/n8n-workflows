@@ -15,5 +15,10 @@
   "env": {
     "WORKFLOW_DB_PATH": "/tmp/workflows.db",
     "PYTHONPATH": "."
+  },
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "workflows/**"
+    }
   }
 }
