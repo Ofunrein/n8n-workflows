@@ -236,7 +236,7 @@ async def search_workflows(
 async def get_workflow_detail(filename: str):
     """Get detailed workflow information including raw JSON."""
     try:
-        print(f"DEBUG: Requested workflow filename: {filename}")
+        print(f"DEBUG: Requested workflow filename: {filename} - Vercel deployment test")
         
         # Get workflow metadata from database
         workflows, _ = db.search_workflows(f'filename:"{filename}"', limit=1)
