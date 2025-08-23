@@ -1606,8 +1606,9 @@
       }
 
       async apiCall(endpoint, options = {}) {
-        // Use the correct API base URL (your server is running on port 8001)
-        const apiBaseUrl = 'http://127.0.0.1:8001';
+        // Use relative URLs for production, fallback to localhost for development
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const apiBaseUrl = isLocalhost ? 'http://127.0.0.1:8001' : '';
         const response = await fetch(`${apiBaseUrl}/api${endpoint}`, {
           headers: {
             'Content-Type': 'application/json',
@@ -2003,8 +2004,10 @@
           this.elements.modalIntegrations.textContent = 'No integrations found';
         }
 
-        // Set download link with correct API port
-        this.elements.downloadBtn.href = `http://127.0.0.1:8001/api/workflows/${workflow.filename}/download`;
+        // Set download link with correct API URL
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const apiBaseUrl = isLocalhost ? 'http://127.0.0.1:8001' : '';
+        this.elements.downloadBtn.href = `${apiBaseUrl}/api/workflows/${workflow.filename}/download`;
         this.elements.downloadBtn.download = workflow.filename;
 
         // Reset view states
