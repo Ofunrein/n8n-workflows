@@ -204,12 +204,32 @@ async def get_workflow_detail(filename: str):
         
         workflow_meta = workflows[0]
         
-        # Load raw JSON from file using absolute path
-        workflows_path = Path(__file__).parent / "workflows"
-        json_files = list(workflows_path.rglob("*.json"))
-        file_path = [f for f in json_files if f.name == filename][0]
-        if not file_path.exists():
-            print(f"Warning: File {file_path} not found on filesystem but exists in database")
+        # Load raw JSON from file using robust path resolution for both local and Vercel
+        # Try multiple possible paths for different environments
+        possible_paths = [
+            Path(__file__).parent / "workflows",  # Local development
+            Path.cwd() / "workflows",              # Current working directory
+            Path("/var/task/workflows"),           # Vercel serverless
+            Path("/tmp/workflows"),                # Vercel temp directory
+        ]
+        
+        file_path = None
+        for workflows_path in possible_paths:
+            if workflows_path.exists():
+                try:
+                    json_files = list(workflows_path.rglob("*.json"))
+                    matching_files = [f for f in json_files if f.name == filename]
+                    if matching_files:
+                        file_path = matching_files[0]
+                        print(f"Found workflow file at: {file_path}")
+                        break
+                except Exception as e:
+                    print(f"Error searching in {workflows_path}: {e}")
+                    continue
+        
+        if not file_path or not file_path.exists():
+            print(f"Warning: File {filename} not found in any of the possible paths")
+            print(f"Tried paths: {[str(p) for p in possible_paths]}")
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
         
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -228,11 +248,31 @@ async def get_workflow_detail(filename: str):
 async def download_workflow(filename: str):
     """Download workflow JSON file with proper n8n structure."""
     try:
-        workflows_path = Path(__file__).parent / "workflows"
-        json_files = list(workflows_path.rglob("*.json"))
-        file_path = [f for f in json_files if f.name == filename][0]
-        if not os.path.exists(file_path):
-            print(f"Warning: Download requested for missing file: {file_path}")
+        # Use robust path resolution for both local and Vercel
+        possible_paths = [
+            Path(__file__).parent / "workflows",  # Local development
+            Path.cwd() / "workflows",              # Current working directory
+            Path("/var/task/workflows"),           # Vercel serverless
+            Path("/tmp/workflows"),                # Vercel temp directory
+        ]
+        
+        file_path = None
+        for workflows_path in possible_paths:
+            if workflows_path.exists():
+                try:
+                    json_files = list(workflows_path.rglob("*.json"))
+                    matching_files = [f for f in json_files if f.name == filename]
+                    if matching_files:
+                        file_path = matching_files[0]
+                        print(f"Found workflow file for download at: {file_path}")
+                        break
+                except Exception as e:
+                    print(f"Error searching in {workflows_path}: {e}")
+                    continue
+        
+        if not file_path or not os.path.exists(file_path):
+            print(f"Warning: Download requested for missing file: {filename}")
+            print(f"Tried paths: {[str(p) for p in possible_paths]}")
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
         
         # Read the workflow file
@@ -282,12 +322,31 @@ async def download_workflow(filename: str):
 async def get_workflow_diagram(filename: str):
     """Get Mermaid diagram code for workflow visualization."""
     try:
-        workflows_path = Path(__file__).parent / "workflows"
-        json_files = list(workflows_path.rglob("*.json"))
-        file_path = [f for f in json_files if f.name == filename][0]
-        print(f'Loading diagram from: {file_path}')
-        if not file_path.exists():
-            print(f"Warning: Diagram requested for missing file: {file_path}")
+        # Use robust path resolution for both local and Vercel
+        possible_paths = [
+            Path(__file__).parent / "workflows",  # Local development
+            Path.cwd() / "workflows",              # Current working directory
+            Path("/var/task/workflows"),           # Vercel serverless
+            Path("/tmp/workflows"),                # Vercel temp directory
+        ]
+        
+        file_path = None
+        for workflows_path in possible_paths:
+            if workflows_path.exists():
+                try:
+                    json_files = list(workflows_path.rglob("*.json"))
+                    matching_files = [f for f in json_files if f.name == filename]
+                    if matching_files:
+                        file_path = matching_files[0]
+                        print(f'Loading diagram from: {file_path}')
+                        break
+                except Exception as e:
+                    print(f"Error searching in {workflows_path}: {e}")
+                    continue
+        
+        if not file_path or not file_path.exists():
+            print(f"Warning: Diagram requested for missing file: {filename}")
+            print(f"Tried paths: {[str(p) for p in possible_paths]}")
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
         
         with open(file_path, 'r', encoding='utf-8') as f:
