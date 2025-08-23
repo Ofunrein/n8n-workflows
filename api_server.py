@@ -252,14 +252,28 @@ async def get_workflow_detail(filename: str):
         raw_json = None
         file_path = None
         
-        # First try: API directory (for Vercel deployment)
-        api_workflows_path = Path(__file__).parent / "workflows"
-        print(f"DEBUG: Checking API workflows path: {api_workflows_path}")
-        print(f"DEBUG: Path exists: {api_workflows_path.exists()}")
-        print(f"DEBUG: Current file: {__file__}")
-        print(f"DEBUG: Parent directory: {Path(__file__).parent}")
+        # First try: Direct file in API directory (for Vercel deployment)
+        api_file_path = Path(__file__).parent / filename
+        print(f"DEBUG: Checking direct API file path: {api_file_path}")
+        print(f"DEBUG: Direct file exists: {api_file_path.exists()}")
         
-        if api_workflows_path.exists():
+        if api_file_path.exists():
+            try:
+                print(f"Found workflow file directly in API directory: {api_file_path}")
+                with open(api_file_path, 'r', encoding='utf-8') as f:
+                    raw_json = json.load(f)
+            except Exception as e:
+                print(f"Error loading direct file: {e}")
+        
+        # If not found directly, try workflows subdirectory
+        if raw_json is None:
+            api_workflows_path = Path(__file__).parent / "workflows"
+            print(f"DEBUG: Checking API workflows path: {api_workflows_path}")
+            print(f"DEBUG: Path exists: {api_workflows_path.exists()}")
+            print(f"DEBUG: Current file: {__file__}")
+            print(f"DEBUG: Parent directory: {Path(__file__).parent}")
+            
+            if api_workflows_path.exists():
             try:
                 json_files = list(api_workflows_path.rglob("*.json"))
                 matching_files = [f for f in json_files if f.name == filename]
