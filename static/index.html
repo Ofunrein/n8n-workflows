@@ -2037,17 +2037,28 @@
           this.elements.viewJsonBtn.textContent = '📄 View JSON';
         } else {
           try {
-            this.elements.jsonViewer.textContent = 'Loading...';
+            // Show loading state
+            this.elements.jsonViewer.textContent = '⏳ Loading workflow JSON...';
             this.elements.jsonSection.classList.remove('hidden');
             this.elements.viewJsonBtn.textContent = '📄 Hide JSON';
+            this.elements.viewJsonBtn.disabled = true;
 
             const data = await this.apiCall(`/workflows/${this.currentWorkflow.filename}`);
             const jsonString = JSON.stringify(data.raw_json, null, 2);
             this.currentJsonData = jsonString;
             this.elements.jsonViewer.textContent = jsonString;
           } catch (error) {
-            this.elements.jsonViewer.textContent = 'Error loading JSON: ' + error.message;
+            console.error('JSON loading error:', error);
+            if (error.message.includes('404')) {
+              this.elements.jsonViewer.textContent = '❌ Workflow file not found. The workflow may have been moved or deleted.';
+            } else if (error.message.includes('500')) {
+              this.elements.jsonViewer.textContent = '⚠️ Server error occurred while loading workflow. Please try again later.';
+            } else {
+              this.elements.jsonViewer.textContent = '❌ Error loading JSON: ' + error.message;
+            }
             this.currentJsonData = null;
+          } finally {
+            this.elements.viewJsonBtn.disabled = false;
           }
         }
       }
@@ -2062,9 +2073,11 @@
           this.elements.viewDiagramBtn.textContent = '📊 View Diagram';
         } else {
           try {
-            this.elements.diagramViewer.textContent = 'Loading diagram...';
+            // Show loading state
+            this.elements.diagramViewer.textContent = '⏳ Generating workflow diagram...';
             this.elements.diagramSection.classList.remove('hidden');
             this.elements.viewDiagramBtn.textContent = '📊 Hide Diagram';
+            this.elements.viewDiagramBtn.disabled = true;
 
             const data = await this.apiCall(`/workflows/${this.currentWorkflow.filename}/diagram`);
             this.currentDiagramData = data.diagram;
@@ -2079,8 +2092,17 @@
               mermaid.init(undefined, this.elements.diagramViewer.querySelector('.mermaid'));
             }
           } catch (error) {
-            this.elements.diagramViewer.textContent = 'Error loading diagram: ' + error.message;
+            console.error('Diagram loading error:', error);
+            if (error.message.includes('404')) {
+              this.elements.diagramViewer.textContent = '❌ Workflow file not found. The workflow may have been moved or deleted.';
+            } else if (error.message.includes('500')) {
+              this.elements.diagramViewer.textContent = '⚠️ Server error occurred while generating diagram. Please try again later.';
+            } else {
+              this.elements.diagramViewer.textContent = '❌ Error loading diagram: ' + error.message;
+            }
             this.currentDiagramData = null;
+          } finally {
+            this.elements.viewDiagramBtn.disabled = false;
           }
         }
       }
