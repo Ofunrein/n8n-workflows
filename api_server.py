@@ -197,9 +197,14 @@ async def search_workflows(
 async def get_workflow_detail(filename: str):
     """Get detailed workflow information including raw JSON."""
     try:
+        print(f"DEBUG: Requested workflow filename: {filename}")
+        
         # Get workflow metadata from database
         workflows, _ = db.search_workflows(f'filename:"{filename}"', limit=1)
+        print(f"DEBUG: Database search returned {len(workflows)} workflows")
+        
         if not workflows:
+            print(f"DEBUG: Workflow {filename} not found in database")
             raise HTTPException(status_code=404, detail="Workflow not found in database")
         
         workflow_meta = workflows[0]
@@ -268,11 +273,11 @@ async def get_workflow_detail(filename: str):
                         print(f"Error searching in {workflows_path}: {e}")
                         continue
             
-                         if raw_json is None:
-                 raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem and vercel data failed to load")
-         
-         if raw_json is None:
-             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found")
+            if raw_json is None:
+                raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem and vercel data failed to load")
+        
+        if raw_json is None:
+            raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found")
         
         return {
             "metadata": workflow_meta,
