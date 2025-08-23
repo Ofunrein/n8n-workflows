@@ -254,6 +254,11 @@ async def get_workflow_detail(filename: str):
         
         # First try: API directory (for Vercel deployment)
         api_workflows_path = Path(__file__).parent / "workflows"
+        print(f"DEBUG: Checking API workflows path: {api_workflows_path}")
+        print(f"DEBUG: Path exists: {api_workflows_path.exists()}")
+        print(f"DEBUG: Current file: {__file__}")
+        print(f"DEBUG: Parent directory: {Path(__file__).parent}")
+        
         if api_workflows_path.exists():
             try:
                 json_files = list(api_workflows_path.rglob("*.json"))
