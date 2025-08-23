@@ -226,7 +226,7 @@ async def get_workflow_detail(filename: str):
 
 @app.get("/api/workflows/{filename}/download")
 async def download_workflow(filename: str):
-    """Download workflow JSON file."""
+    """Download workflow JSON file with proper n8n structure."""
     try:
         workflows_path = Path(__file__).parent / "workflows"
         json_files = list(workflows_path.rglob("*.json"))
@@ -235,10 +235,42 @@ async def download_workflow(filename: str):
             print(f"Warning: Download requested for missing file: {file_path}")
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
         
-        return FileResponse(
-            file_path,
-            media_type="application/json",
-            filename=filename
+        # Read the workflow file
+        with open(file_path, 'r', encoding='utf-8') as f:
+            workflow_data = json.load(f)
+        
+        print(f"DEBUG: Loaded workflow data type: {type(workflow_data)}")
+        print(f"DEBUG: Original workflow data keys: {list(workflow_data.keys())}")
+        print(f"DEBUG: First few keys: {list(workflow_data.keys())[:5] if workflow_data else 'No keys'}")
+        
+        # Check if the workflow has the required top-level fields
+        if 'id' not in workflow_data:
+            # Generate a unique ID based on filename hash
+            import hashlib
+            workflow_id = hashlib.md5(filename.encode()).hexdigest()[:8]
+            workflow_data['id'] = workflow_id
+            print(f"DEBUG: Added missing id: {workflow_id}")
+        else:
+            print(f"DEBUG: Workflow already has id: {workflow_data['id']}")
+        
+        if 'name' not in workflow_data:
+            # Use filename as name (remove .json extension)
+            workflow_name = filename.replace('.json', '').replace('_', ' ')
+            workflow_data['name'] = workflow_name
+            print(f"DEBUG: Added missing name: {workflow_name}")
+        else:
+            print(f"DEBUG: Workflow already has name: {workflow_data['name']}")
+        
+        print(f"DEBUG: Final workflow data keys: {list(workflow_data.keys())}")
+        print(f"DEBUG: About to return JSONResponse with {len(str(workflow_data))} characters")
+        
+        # Return the corrected JSON data directly
+        return JSONResponse(
+            content=workflow_data,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "application/json"
+            }
         )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found")
