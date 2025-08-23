@@ -128,6 +128,45 @@ async def get_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
 
+@app.get("/api/debug/vercel-data")
+async def get_vercel_data_debug():
+    """Debug endpoint to check if vercel_workflows.json is accessible."""
+    try:
+        # Try local copy first (in api/ directory)
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if not vercel_data_path.exists():
+            # Fallback to parent directory
+            vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
+        
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                vercel_data = json.load(f)
+            
+            # Find Stock Q&A Workflow specifically
+            stock_workflow = None
+            for workflow in vercel_data.get('workflows', []):
+                if workflow.get('filename') == '1255_Webhook_Respondtowebhook_Automate_Webhook.json':
+                    stock_workflow = workflow
+                    break
+            
+            return {
+                "vercel_data_path": str(vercel_data_path),
+                "vercel_data_exists": True,
+                "total_workflows_in_vercel_data": len(vercel_data.get('workflows', [])),
+                "stock_workflow_found": stock_workflow is not None,
+                "stock_workflow_data": stock_workflow if stock_workflow else "Not found"
+            }
+        else:
+            return {
+                "vercel_data_path": str(vercel_data_path),
+                "vercel_data_exists": False,
+                "error": "vercel_workflows.json not found"
+            }
+    except Exception as e:
+        return {
+            "error": f"Debug endpoint failed: {str(e)}"
+        }
+
 @app.get("/api/workflows", response_model=SearchResponse)
 async def search_workflows(
     q: str = Query("", description="Search query"),
