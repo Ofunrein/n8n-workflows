@@ -128,7 +128,7 @@ async def get_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
 
-@app.get("/api/debug/vercel-data")
+@app.get("/api/debug-vercel")
 async def get_vercel_data_debug():
     """Debug endpoint to check if vercel_workflows.json is accessible."""
     try:
@@ -248,16 +248,34 @@ async def get_workflow_detail(filename: str):
         
         workflow_meta = workflows[0]
         
-        # Try to load from vercel_workflows.json first (production)
+        # Try to load from filesystem first - check API directory for workflows
         raw_json = None
         file_path = None
         
-        try:
-            # Try local copy first (in api/ directory)
-            vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
-            if not vercel_data_path.exists():
-                # Fallback to parent directory
-                vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
+        # First try: API directory (for Vercel deployment)
+        api_workflows_path = Path(__file__).parent / "workflows"
+        if api_workflows_path.exists():
+            try:
+                json_files = list(api_workflows_path.rglob("*.json"))
+                matching_files = [f for f in json_files if f.name == filename]
+                if matching_files:
+                    file_path = matching_files[0]
+                    print(f"Found workflow file in API directory: {file_path}")
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        raw_json = json.load(f)
+                else:
+                    print(f"Workflow file not found in API directory: {filename}")
+            except Exception as e:
+                print(f"Error loading workflow from API directory: {e}")
+        
+        # If not found in API directory, try vercel_workflows.json
+        if raw_json is None:
+            try:
+                # Try local copy first (in api/ directory)
+                vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+                if not vercel_data_path.exists():
+                    # Fallback to parent directory
+                    vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
             
             if vercel_data_path.exists():
                 print(f"Loading from vercel_workflows.json: {vercel_data_path}")
