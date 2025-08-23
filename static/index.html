@@ -1606,7 +1606,9 @@
       }
 
       async apiCall(endpoint, options = {}) {
-        const response = await fetch(`/api${endpoint}`, {
+        // Use the correct API base URL (your server is running on port 8001)
+        const apiBaseUrl = 'http://127.0.0.1:8001';
+        const response = await fetch(`${apiBaseUrl}/api${endpoint}`, {
           headers: {
             'Content-Type': 'application/json',
             ...options.headers
@@ -2001,8 +2003,8 @@
           this.elements.modalIntegrations.textContent = 'No integrations found';
         }
 
-        // Set download link
-        this.elements.downloadBtn.href = `/api/workflows/${workflow.filename}/download`;
+        // Set download link with correct API port
+        this.elements.downloadBtn.href = `http://127.0.0.1:8001/api/workflows/${workflow.filename}/download`;
         this.elements.downloadBtn.download = workflow.filename;
 
         // Reset view states
