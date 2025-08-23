@@ -204,16 +204,16 @@ async def get_workflow_detail(filename: str):
         
         workflow_meta = workflows[0]
         
-        # Load raw JSON from file using robust path resolution for both local and Vercel
-        # Try multiple possible paths for different environments
+        # Try to load from filesystem first (local development)
         possible_paths = [
             Path(__file__).parent / "workflows",  # Local development
             Path.cwd() / "workflows",              # Current working directory
-            Path("/var/task/workflows"),           # Vercel serverless
-            Path("/tmp/workflows"),                # Vercel temp directory
         ]
         
+        raw_json = None
         file_path = None
+        
+        # Try filesystem first
         for workflows_path in possible_paths:
             if workflows_path.exists():
                 try:
@@ -222,18 +222,57 @@ async def get_workflow_detail(filename: str):
                     if matching_files:
                         file_path = matching_files[0]
                         print(f"Found workflow file at: {file_path}")
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            raw_json = json.load(f)
                         break
                 except Exception as e:
                     print(f"Error searching in {workflows_path}: {e}")
                     continue
         
-        if not file_path or not file_path.exists():
-            print(f"Warning: File {filename} not found in any of the possible paths")
-            print(f"Tried paths: {[str(p) for p in possible_paths]}")
-            raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem")
+        # If filesystem failed, try vercel_workflows.json (production)
+        if raw_json is None:
+            try:
+                # Try local copy first (in api/ directory)
+                vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+                if not vercel_data_path.exists():
+                    # Fallback to parent directory
+                    vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
+                
+                if vercel_data_path.exists():
+                    print(f"Loading from vercel_workflows.json: {vercel_data_path}")
+                    with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                        vercel_data = json.load(f)
+                    
+                    # Find the workflow in the vercel data
+                    for workflow in vercel_data.get('workflows', []):
+                        if workflow.get('filename') == filename:
+                            # Reconstruct the raw JSON from the metadata
+                            raw_json = {
+                                'id': workflow.get('workflow_id', ''),
+                                'name': workflow.get('name', ''),
+                                'active': workflow.get('active', False),
+                                'nodes': [],  # We don't have the full node data in vercel_workflows.json
+                                'connections': {},
+                                'meta': {
+                                    'description': workflow.get('description', ''),
+                                    'tags': workflow.get('tags', [])
+                                }
+                            }
+                            print(f"Found workflow in vercel_workflows.json: {filename}")
+                            break
+                    
+                    if raw_json is None:
+                        print(f"Workflow {filename} not found in vercel_workflows.json")
+                        raise HTTPException(status_code=404, detail=f"Workflow '{filename}' not found in vercel data")
+                else:
+                    print("vercel_workflows.json not found")
+                    raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem and vercel data unavailable")
+            except Exception as e:
+                print(f"Error loading from vercel_workflows.json: {e}")
+                raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem and vercel data failed to load")
         
-        with open(file_path, 'r', encoding='utf-8') as f:
-            raw_json = json.load(f)
+        if raw_json is None:
+            raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found")
         
         return {
             "metadata": workflow_meta,
