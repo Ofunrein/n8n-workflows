@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python@3.9.16",
+      "includeFiles": "workflows/**"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/(.*)",
@@ -15,10 +15,5 @@
   "env": {
     "WORKFLOW_DB_PATH": "/tmp/workflows.db",
     "PYTHONPATH": "."
-  },
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "workflows/**"
-    }
   }
 }
