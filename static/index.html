@@ -202,6 +202,21 @@
       background-clip: text;
     }
 
+    .clickable-title {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .clickable-title:hover {
+      transform: scale(1.02);
+      filter: brightness(1.1);
+    }
+
+    .clickable-title:active {
+      transform: scale(0.98);
+    }
+
     .subtitle {
       font-size: 0.875rem; /* Reduced from 1rem */
       color: rgba(255, 255, 255, 0.9);
@@ -1911,7 +1926,7 @@
             <span>Powered by Lumenosis</span>
           </div>
         </a>
-        <h1 class="title">All n8n Workflow<br>Automation Templates</h1>
+        <h1 class="title clickable-title" id="heroTitle" onclick="resetToHome()">All n8n Workflow<br>Automation Templates</h1>
         <p class="subtitle">Browse, search and filter a comprehensive collection of production-ready N8N workflow Automation templates. Find automation solutions, documentation, and best practices for your business needs.</p>
         <div class="stats">
           <div class="stat">
@@ -2119,6 +2134,15 @@
   </div>
 
   <script>
+    // Global function to reset to home state (called from HTML onclick)
+    let workflowAppInstance = null;
+    
+    function resetToHome() {
+      if (workflowAppInstance) {
+        workflowAppInstance.resetToHome();
+      }
+    }
+
     // Enhanced Workflow App with Full Functionality
     class WorkflowApp {
       constructor() {
@@ -2987,6 +3011,48 @@
         console.log('Filters reset to default state');
       }
 
+      resetToHome() {
+        // Reset to home state - show all templates
+        console.log('Resetting to home state');
+        
+        // Reset category selection
+        this.state.selectedCategory = 'all';
+        this.state.filters.category = 'all';
+        
+        // Reset all filters
+        this.resetFiltersToDefault();
+        
+        // Clear any selected category in quick navigation
+        if (this.elements.quickCategories) {
+          const activeButton = this.elements.quickCategories.querySelector('.category-btn.active');
+          if (activeButton) {
+            activeButton.classList.remove('active');
+          }
+          
+          // Activate "All Templates" button
+          const allTemplatesBtn = this.elements.quickCategories.querySelector('[data-category="all"]');
+          if (allTemplatesBtn) {
+            allTemplatesBtn.classList.add('active');
+          }
+        }
+        
+        // Update category filter dropdown
+        if (this.elements.categoryFilter) {
+          this.elements.categoryFilter.value = 'all';
+        }
+        
+        // Load all workflows
+        this.loadWorkflows(true);
+        
+        // Update URL to remove parameters
+        this.updateURL();
+        
+        // Scroll to top smoothly
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        console.log('Reset to home state complete');
+      }
+
       filterWorkflowsByCategory(category) {
         if (!this.state.allWorkflows || this.state.allWorkflows.length === 0) {
           console.log('No workflows available for filtering');
@@ -3793,7 +3859,7 @@
 
     // Initialize the app
     document.addEventListener('DOMContentLoaded', () => {
-      window.workflowApp = new WorkflowApp();
+      workflowAppInstance = new WorkflowApp();
       initScrollAnimations();
       initStatsAnimation();
     });
