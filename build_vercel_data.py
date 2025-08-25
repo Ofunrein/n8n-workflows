@@ -220,6 +220,7 @@ def analyze_workflow_file(file_path: str) -> Optional[Dict[str, Any]]:
     return {
         'filename': filename,
         'name': workflow_name,
+        'workflow_id': data.get('id', ''),
         'active': data.get('active', False),
         'description': desc,
         'trigger_type': trigger_type,
@@ -230,8 +231,58 @@ def analyze_workflow_file(file_path: str) -> Optional[Dict[str, Any]]:
         'created_at': data.get('createdAt', ''),
         'updated_at': data.get('updatedAt', ''),
         'file_hash': get_file_hash(file_path),
-        'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else 0,
+        'content': extract_workflow_content(data)
     }
+
+def extract_workflow_content(data: Dict[str, Any]) -> str:
+    """Extract all searchable content from workflow JSON including nodes, parameters, and sticky notes."""
+    content_parts = []
+    
+    # Extract basic workflow info
+    if 'name' in data:
+        content_parts.append(str(data['name']))
+    
+    if 'description' in data:
+        content_parts.append(str(data['description']))
+    
+    # Extract content from nodes
+    if 'nodes' in data:
+        for node in data['nodes']:
+            # Node type and name
+            if 'type' in node:
+                content_parts.append(str(node['type']))
+            if 'name' in node:
+                content_parts.append(str(node['name']))
+            
+            # Node parameters and configuration
+            if 'parameters' in node:
+                params = node['parameters']
+                if isinstance(params, dict):
+                    for key, value in params.items():
+                        if isinstance(value, str):
+                            content_parts.append(f"{key}: {value}")
+                        elif isinstance(value, dict):
+                            content_parts.append(str(value))
+                        else:
+                            content_parts.append(f"{key}: {str(value)}")
+            
+            # Sticky note content
+            if node.get('type') == 'n8n-nodes-base.stickyNote':
+                if 'parameters' in node and 'content' in node['parameters']:
+                    content_parts.append(str(node['parameters']['content']))
+            
+            # Code node content
+            if node.get('type') == 'n8n-nodes-base.code':
+                if 'parameters' in node and 'jsCode' in node['parameters']:
+                    content_parts.append(str(node['parameters']['jsCode']))
+    
+    # Extract tags
+    if 'tags' in data and isinstance(data['tags'], list):
+        for tag in data['tags']:
+            content_parts.append(str(tag))
+    
+    return ' '.join(content_parts)
 
 def build_vercel_data_dict():
     """Build workflow data for Vercel deployment and return as dictionary."""
