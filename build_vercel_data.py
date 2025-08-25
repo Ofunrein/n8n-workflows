@@ -291,6 +291,24 @@ def build_vercel_data_dict():
         print(f"Warning: Workflows directory '{workflows_dir}' not found.")
         return {'stats': {}, 'workflows': []}
     
+    # Load category mappings
+    category_mappings = {}
+    search_categories_file = "api/search_categories.json"
+    if os.path.exists(search_categories_file):
+        try:
+            with open(search_categories_file, 'r', encoding='utf-8') as f:
+                category_data = json.load(f)
+                for item in category_data:
+                    filename = item.get('filename')
+                    category = item.get('category', 'Uncategorized')
+                    if filename:
+                        category_mappings[filename] = category
+            print(f"Loaded category mappings for {len(category_mappings)} workflows")
+        except Exception as e:
+            print(f"Warning: Could not load category mappings: {e}")
+    else:
+        print("Warning: search_categories.json not found, workflows will be uncategorized")
+    
     workflows_path = Path(workflows_dir)
     json_files = list(workflows_path.rglob("*.json"))
     
@@ -306,6 +324,10 @@ def build_vercel_data_dict():
     for i, file_path in enumerate(json_files):
         workflow_data = analyze_workflow_file(str(file_path))
         if workflow_data:
+            # Add category information
+            filename = workflow_data['filename']
+            workflow_data['category'] = category_mappings.get(filename, 'Uncategorized')
+            
             workflows_data.append(workflow_data)
         else:
             errors += 1
@@ -321,6 +343,7 @@ def build_vercel_data_dict():
     
     triggers = {}
     complexity = {}
+    categories = {}
     all_integrations = set()
     
     for workflow in workflows_data:
@@ -332,6 +355,10 @@ def build_vercel_data_dict():
         comp = workflow['complexity']
         complexity[comp] = complexity.get(comp, 0) + 1
         
+        # Category stats
+        category = workflow.get('category', 'Uncategorized')
+        categories[category] = categories.get(category, 0) + 1
+        
         # Integrations
         all_integrations.update(workflow['integrations'])
     
@@ -341,6 +368,7 @@ def build_vercel_data_dict():
         'inactive': total - active,
         'triggers': triggers,
         'complexity': complexity,
+        'categories': categories,
         'total_nodes': total_nodes,
         'unique_integrations': len(all_integrations),
         'last_indexed': '2025-08-21'

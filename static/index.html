@@ -2703,7 +2703,8 @@
           // Filter by category if selected
           if (this.state.selectedCategory && this.state.selectedCategory !== 'all') {
             filteredResults = filteredResults.filter(w => {
-              const workflowCategory = this.getWorkflowCategory(w.filename);
+              // Use category field directly from enhanced data
+              const workflowCategory = w.category || this.getWorkflowCategory(w.filename);
               return workflowCategory === this.state.selectedCategory;
             });
           }
@@ -3420,6 +3421,15 @@
       }
 
       getWorkflowCategory(filename) {
+        // First try to get category from enhanced workflow data
+        if (this.state.enhancedWorkflows && this.state.enhancedWorkflows.length > 0) {
+          const enhancedWorkflow = this.state.enhancedWorkflows.find(w => w.filename === filename);
+          if (enhancedWorkflow && enhancedWorkflow.category) {
+            return enhancedWorkflow.category;
+          }
+        }
+        
+        // Fall back to old category mapping system
         const category = this.state.categoryMap.get(filename);
         const result = category && category.trim() ? category : 'Uncategorized';
         
