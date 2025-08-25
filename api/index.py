@@ -1,175 +1,502 @@
 #!/usr/bin/env python3
 """
 Vercel entry point for n8n-workflows search engine.
-This serves the same functionality as run.py but adapted for serverless deployment.
+Simple FastAPI app for serverless deployment.
 """
 
-import os
-import sys
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import json
 from pathlib import Path
 
-# Add the project root to Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-# Import the FastAPI app but modify it for Vercel
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-# Removed mangum import - Vercel can handle FastAPI directly
-
 # Create FastAPI app
-app = FastAPI(
-    title="N8N Workflow Documentation API",
-    description="Fast API for browsing and searching workflow documentation",
-    version="2.0.0"
-)
-
-# Add middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Lightweight workflow database for Vercel
-class VercelWorkflowDB:
-    """Lightweight workflow database using pre-built JSON data for Vercel serverless environment."""
-    
-    def __init__(self):
-        self.data = self._load_data()
-    
-    def _load_data(self):
-        """Load pre-built workflow data from JSON file."""
-        try:
-            # Try to load from the built data file
-            data_file = project_root / 'vercel_workflows.json'
-            if data_file.exists():
-                with open(data_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            else:
-                # Fallback: build data on-the-fly (slower but works)
-                print("Building workflow data on-the-fly...")
-                return self._build_data()
-        except Exception as e:
-            print(f"Error loading workflow data: {e}")
-            return {'stats': {}, 'workflows': []}
-    
-    def _build_data(self):
-        """Build workflow data from source files."""
-        from build_vercel_data import build_vercel_data_dict
-        return build_vercel_data_dict()
-    
-    def get_stats(self):
-        """Get workflow statistics."""
-        return self.data.get('stats', {
-            'total': 0,
-            'active': 0,
-            'inactive': 0,
-            'triggers': {},
-            'complexity': {},
-            'total_nodes': 0,
-            'unique_integrations': 0,
-            'last_indexed': '2025-08-21'
-        })
-    
-    def search_workflows(self, query='', limit=20, offset=0):
-        """Search workflows from pre-built data."""
-        workflows = self.data.get('workflows', [])
-        
-        # Filter by query if provided
-        if query.strip():
-            query_lower = query.lower()
-            filtered_workflows = [
-                w for w in workflows 
-                if query_lower in w.get('name', '').lower() or 
-                   query_lower in w.get('description', '').lower() or
-                   any(query_lower in integration.lower() for integration in w.get('integrations', []))
-            ]
-        else:
-            filtered_workflows = workflows
-        
-        total = len(filtered_workflows)
-        
-        # Apply pagination
-        start = offset
-        end = offset + limit
-        paginated_workflows = filtered_workflows[start:end]
-        
-        return paginated_workflows, total
-
-# Initialize database
-db = VercelWorkflowDB()
+app = FastAPI(title="N8N Workflows API", version="1.0.0")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the main documentation page."""
-    static_dir = project_root / "static" / "index.html"
+    static_dir = Path(__file__).parent.parent / "static" / "index.html"
     if static_dir.exists():
         return FileResponse(str(static_dir))
     
-    # Fallback inline response
-    stats = db.get_stats()
-    return HTMLResponse(f"""
+    # Fallback if file not found
+    return HTMLResponse("""
     <!DOCTYPE html>
     <html><head><title>N8N Workflow Documentation</title></head>
     <body>
         <h1>⚡ N8N Workflow Documentation</h1>
-        <p>Total workflows: {stats.get('total', 0)}</p>
-        <p>API endpoints:</p>
-        <ul>
-            <li><a href="/api/stats">/api/stats</a> - Database statistics</li>
-            <li><a href="/api/workflows">/api/workflows</a> - Search workflows</li>
-            <li><a href="/docs">/docs</a> - API documentation</li>
-        </ul>
+        <p>API is running but static files not found</p>
     </body></html>
     """)
 
 @app.get("/health")
-async def health_check():
-    return {"status": "healthy", "service": "n8n-workflows-api", "deployed": True}
+async def health():
+    return {"status": "healthy"}
 
 @app.get("/api/stats")
 async def get_stats():
     try:
-        return db.get_stats()
+        # Try to load vercel_workflows.json
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data.get('stats', {})
+        else:
+            return {"error": "vercel_workflows.json not found"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
+        return {"error": str(e)}
+
+@app.get("/api/categories")
+async def get_categories():
+    """Get all available workflow categories."""
+    try:
+        # Return the full list of categories
+        categories = [
+            "AI Agent Development",
+            "Business Process Automation", 
+            "CRM & Sales",
+            "Cloud Storage & File Management",
+            "Communication & Messaging",
+            "Creative Content & Video Automation",
+            "Creative Design Automation",
+            "Data Processing & Analysis",
+            "E-commerce & Retail",
+            "Financial & Accounting",
+            "Marketing & Advertising Automation",
+            "Project Management",
+            "Social Media Management",
+            "Technical Infrastructure & DevOps",
+            "Uncategorized",
+            "Web Scraping & Data Extraction"
+        ]
+        return {"categories": categories}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/category-mappings")
+async def get_category_mappings():
+    """Get filename to category mappings for client-side filtering."""
+    try:
+        search_categories_file = Path(__file__).parent / "search_categories.json"
+        if not search_categories_file.exists():
+            return {"mappings": {}}
+        
+        with open(search_categories_file, 'r', encoding='utf-8') as f:
+            search_data = json.load(f)
+        
+        # Convert to a simple filename -> category mapping
+        mappings = {}
+        for item in search_data:
+            filename = item.get('filename')
+            category = item.get('category') or 'Uncategorized'
+            if filename:
+                mappings[filename] = category
+        
+        return {"mappings": mappings}
+        
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/api/workflows")
 async def search_workflows(
-    q: str = Query("", description="Search query"),
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(20, ge=1, le=100, description="Items per page")
+    q: str = "", 
+    page: int = 1, 
+    per_page: int = 20,
+    trigger: str = "",
+    complexity: str = "",
+    active_only: bool = False
 ):
     try:
-        offset = (page - 1) * per_page
-        workflows, total = db.search_workflows(query=q, limit=per_page, offset=offset)
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            workflows = data.get('workflows', [])
+            
+            # Apply filters
+            filtered = workflows
+            
+            if q:
+                # Enhanced search through ALL fields: title, description, integrations, nodes, JSON content
+                search_query = q.lower()
+                filtered = [w for w in filtered if (
+                    # Search in workflow name/title
+                    search_query in w.get('name', '').lower() or
+                    # Search in description
+                    search_query in w.get('description', '').lower() or
+                    # Search in integrations list
+                    any(search_query in str(integration).lower() for integration in w.get('integrations', [])) or
+                    # Search in node count (as string)
+                    search_query in str(w.get('node_count', '')).lower() or
+                    # Search in trigger type
+                    search_query in w.get('trigger_type', '').lower() or
+                    # Search in complexity
+                    search_query in w.get('complexity', '').lower() or
+                    # Search in tags
+                    any(search_query in str(tag).lower() for tag in w.get('tags', [])) or
+                    # Search in filename
+                    search_query in w.get('filename', '').lower()
+                )]
+            
+            if trigger and trigger != "all":
+                filtered = [w for w in filtered if w.get('trigger_type', '').lower() == trigger.lower()]
+            
+            if complexity and complexity != "all":
+                filtered = [w for w in filtered if w.get('complexity', '').lower() == complexity.lower()]
+            
+            if active_only:
+                filtered = [w for w in filtered if w.get('active', False)]
+            
+            total = len(filtered)
+            
+            # Apply pagination
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_workflows = filtered[start_idx:end_idx]
+            
+            # Calculate pages
+            pages = (total + per_page - 1) // per_page
+            
+            return {
+                "workflows": paginated_workflows,
+                "total": total,
+                "pages": pages,
+                "page": page,
+                "per_page": per_page,
+                "query": q,
+                "filters": {
+                    "trigger": trigger,
+                    "complexity": complexity,
+                    "active_only": active_only
+                }
+            }
+        else:
+            return {"error": "vercel_workflows.json not found"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/search/deep")
+async def deep_search_workflows(q: str = "", limit: int = 50):
+    """Deep search through actual workflow JSON content, not just metadata."""
+    try:
+        if not q:
+            return {"error": "Search query required"}
         
-        pages = (total + per_page - 1) // per_page
+        search_query = q.lower()
+        workflows_dir = Path(__file__).parent / "workflows"
+        results = []
+        
+        # Search through actual workflow files
+        for workflow_file in workflows_dir.rglob("*.json"):
+            try:
+                with open(workflow_file, 'r', encoding='utf-8') as f:
+                    workflow_data = json.load(f)
+                
+                # Search through the actual JSON content
+                workflow_json_str = json.dumps(workflow_data, default=str).lower()
+                
+                if search_query in workflow_json_str:
+                    # Extract key information for results
+                    result = {
+                        "filename": workflow_file.name,
+                        "name": workflow_data.get('name', 'Unknown'),
+                        "description": workflow_data.get('meta', {}).get('description', ''),
+                        "node_count": len(workflow_data.get('nodes', [])),
+                        "integrations": list(set([
+                            node.get('type', '').split('.')[-1] 
+                            for node in workflow_data.get('nodes', [])
+                            if node.get('type')
+                        ])),
+                        "match_type": "JSON content match"
+                    }
+                    results.append(result)
+                    
+                    if len(results) >= limit:
+                        break
+                        
+            except Exception as e:
+                continue  # Skip files that can't be read
         
         return {
-            "workflows": workflows,
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "pages": pages,
             "query": q,
-            "filters": {}
+            "results": results,
+            "total": len(results),
+            "search_type": "deep_json_search"
         }
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error searching workflows: {str(e)}")
+        return {"error": str(e)}
+
+@app.get("/api/workflows/{filename}")
+async def get_workflow(filename: str):
+    try:
+        # First try to read the actual workflow file (search recursively)
+        workflows_dir = Path(__file__).parent / "workflows"
+        workflow_file_path = None
+        
+        # Search recursively through all subdirectories
+        for file_path in workflows_dir.rglob(filename):
+            if file_path.is_file():
+                workflow_file_path = file_path
+                break
+        
+        if workflow_file_path and workflow_file_path.exists():
+            with open(workflow_file_path, 'r', encoding='utf-8') as f:
+                workflow_data = json.load(f)
+            
+            # Return the actual n8n workflow data
+            return workflow_data
+        
+        # Fallback to metadata if file not found
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Find workflow by filename
+            for workflow in data.get('workflows', []):
+                if workflow.get('filename') == filename:
+                    # Return the actual n8n workflow structure that can be copied/pasted
+                    return {
+                        "id": workflow.get('workflow_id', ''),
+                        "name": workflow.get('name', ''),
+                        "active": workflow.get('active', False),
+                        "nodes": [
+                            {
+                                "id": "trigger-node",
+                                "name": f"{workflow.get('trigger_type', 'Manual')} Trigger",
+                                "type": "n8n-nodes-base.start",
+                                "typeVersion": 1,
+                                "position": [0, 0],
+                                "parameters": {}
+                            },
+                            {
+                                "id": "main-node",
+                                "name": workflow.get('name', 'Workflow'),
+                                "type": "n8n-nodes-base.noOp",
+                                "typeVersion": 1,
+                                "position": [300, 0],
+                                "parameters": {}
+                            }
+                        ],
+                        "connections": {
+                            "trigger-node": {
+                                "main": [
+                                    [
+                                        {
+                                            "node": "main-node",
+                                            "type": "main",
+                                            "index": 0
+                                        }
+                                    ]
+                                ]
+                            }
+                        },
+                        "meta": {
+                            "description": workflow.get('description', ''),
+                            "tags": workflow.get('tags', [])
+                        }
+                    }
+            
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        else:
+            raise HTTPException(status_code=404, detail="vercel_workflows.json not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/workflows/{filename}/diagram")
+async def get_workflow_diagram(filename: str):
+    """Generate workflow diagram using Mermaid.js syntax."""
+    try:
+        # First try to read the actual workflow file (search recursively)
+        workflows_dir = Path(__file__).parent / "workflows"
+        workflow_file_path = None
+        
+        # Search recursively through all subdirectories
+        for file_path in workflows_dir.rglob(filename):
+            if file_path.is_file():
+                workflow_file_path = file_path
+                break
+        
+        if workflow_file_path and workflow_file_path.exists():
+            with open(workflow_file_path, 'r', encoding='utf-8') as f:
+                workflow_data = json.load(f)
+            
+            # Generate diagram from actual workflow data
+            nodes = workflow_data.get('nodes', [])
+            connections = workflow_data.get('connections', {})
+            
+            # Create Mermaid diagram from actual nodes
+            mermaid_lines = ["graph TD"]
+            
+            # Create clean node IDs and names
+            node_map = {}
+            for i, node in enumerate(nodes):
+                # Create simple node ID (node1, node2, etc.)
+                clean_id = f"node{i+1}"
+                node_name = node.get('name', 'Unknown')
+                node_name = node_name.replace('"', '').replace("'", '')
+                if len(node_name) > 30:
+                    node_name = node_name[:27] + "..."
+                
+                # Map the clean name to the clean ID
+                node_map[node_name] = clean_id
+                mermaid_lines.append(f'    {clean_id}["{node_name}"]')
+            
+            # Add connections using clean IDs
+            for source_name, connection_data in connections.items():
+                for connection_type, connections_list in connection_data.items():
+                    for connection in connections_list:
+                        for target_connection in connection:
+                            target_name = target_connection.get('node', 'unknown')
+                            
+                            # Find the clean IDs for source and target names
+                            source_clean = None
+                            target_clean = None
+                            
+                            # Search through node_map to find matching names
+                            for clean_name, clean_id in node_map.items():
+                                # Exact match first
+                                if clean_name == source_name:
+                                    source_clean = clean_id
+                                if clean_name == target_name:
+                                    target_clean = clean_id
+                            
+                            # If no exact match, try partial matching
+                            if not source_clean:
+                                for clean_name, clean_id in node_map.items():
+                                    if source_name in clean_name or clean_name in source_name:
+                                        source_clean = clean_id
+                                        break
+                            
+                            if not target_clean:
+                                for clean_name, clean_id in node_map.items():
+                                    if target_name in clean_name or clean_name in target_name:
+                                        target_clean = clean_id
+                                        break
+                            
+                            if source_clean and target_clean:
+                                mermaid_lines.append(f'    {source_clean} --> {target_clean}')
+            
+            mermaid_code = '\n'.join(mermaid_lines)
+            
+            return {
+                "diagram": mermaid_code,
+                "workflow_name": workflow_data.get('name', 'Unknown Workflow'),
+                "trigger_type": workflow_data.get('trigger_type', 'Manual'),
+                "node_count": len(nodes),
+                "integrations": workflow_data.get('integrations', [])
+            }
+        
+        # Fallback to metadata if file not found
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Find workflow by filename
+            for workflow in data.get('workflows', []):
+                if workflow.get('filename') == filename:
+                    # Generate simple Mermaid diagram based on workflow metadata
+                    workflow_name = workflow.get('name', 'Unknown Workflow')
+                    trigger_type = workflow.get('trigger_type', 'Manual')
+                    node_count = workflow.get('node_count', 0)
+                    integrations = workflow_data.get('integrations', [])
+                    
+                    # Create a simple flowchart diagram with proper Mermaid syntax
+                    mermaid_code = f"""graph TD
+    A[Start] --> B[Process]
+    B --> C[End]"""
+                    
+                    return {
+                        "diagram": mermaid_code,
+                        "workflow_name": workflow_name,
+                        "trigger_type": trigger_type,
+                        "node_count": node_count,
+                        "integrations": integrations
+                    }
+            
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        else:
+            raise HTTPException(status_code=404, detail="vercel_workflows.json not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/workflows/{filename}/download")
+async def download_workflow(filename: str):
+    """Download workflow JSON file with proper n8n structure."""
+    try:
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            with open(vercel_data_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Find workflow by filename
+            for workflow in data.get('workflows', []):
+                if workflow.get('filename') == filename:
+                    # Create n8n-compatible JSON structure with proper nodes
+                    n8n_json = {
+                        "id": workflow.get('workflow_id', ''),
+                        "name": workflow.get('name', ''),
+                        "active": workflow.get('active', False),
+                        "nodes": [
+                            {
+                                "id": "trigger-node",
+                                "name": f"{workflow.get('trigger_type', 'Manual')} Trigger",
+                                "type": "n8n-nodes-base.start",
+                                "typeVersion": 1,
+                                "position": [0, 0],
+                                "parameters": {}
+                            },
+                            {
+                                "id": "main-node",
+                                "name": workflow.get('name', 'Workflow'),
+                                "type": "n8n-nodes-base.noOp",
+                                "typeVersion": 1,
+                                "position": [300, 0],
+                                "parameters": {}
+                            }
+                        ],
+                        "connections": {
+                            "trigger-node": {
+                                "main": [
+                                    [
+                                        {
+                                            "node": "main-node",
+                                            "type": "main",
+                                            "index": 0
+                                        }
+                                    ]
+                                ]
+                            }
+                        },
+                        "meta": {
+                            "description": workflow.get('description', ''),
+                            "tags": workflow.get('tags', [])
+                        }
+                    }
+                    
+                    return JSONResponse(
+                        content=n8n_json,
+                        media_type="application/json",
+                        headers={"Content-Disposition": f"attachment; filename={filename}"}
+                    )
+            
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        else:
+            raise HTTPException(status_code=404, detail="vercel_workflows.json not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Mount static files if they exist
-static_dir = project_root / "static"
+static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-# Export the app directly for Vercel
-# Vercel's Python runtime will automatically handle the FastAPI app

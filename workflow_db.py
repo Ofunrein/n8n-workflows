@@ -50,6 +50,7 @@ class WorkflowDatabase:
                 updated_at TEXT,
                 file_hash TEXT,
                 file_size INTEGER,
+                content TEXT,      -- Full workflow content for search
                 analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -62,6 +63,7 @@ class WorkflowDatabase:
                 description,
                 integrations,
                 tags,
+                content,
                 content=workflows,
                 content_rowid=id
             )
@@ -77,24 +79,24 @@ class WorkflowDatabase:
         # Create triggers to keep FTS table in sync
         conn.execute("""
             CREATE TRIGGER IF NOT EXISTS workflows_ai AFTER INSERT ON workflows BEGIN
-                INSERT INTO workflows_fts(rowid, filename, name, description, integrations, tags)
-                VALUES (new.id, new.filename, new.name, new.description, new.integrations, new.tags);
+                INSERT INTO workflows_fts(rowid, filename, name, description, integrations, tags, content)
+                VALUES (new.id, new.filename, new.name, new.description, new.integrations, new.tags, new.content);
             END
         """)
         
         conn.execute("""
             CREATE TRIGGER IF NOT EXISTS workflows_ad AFTER DELETE ON workflows BEGIN
-                INSERT INTO workflows_fts(workflows_fts, rowid, filename, name, description, integrations, tags)
-                VALUES ('delete', old.id, old.filename, old.name, old.description, old.integrations, old.tags);
+                INSERT INTO workflows_fts(workflows_fts, rowid, filename, name, description, integrations, tags, content)
+                VALUES ('delete', old.id, old.filename, old.name, old.description, old.integrations, old.tags, old.content);
             END
         """)
         
         conn.execute("""
             CREATE TRIGGER IF NOT EXISTS workflows_au AFTER UPDATE ON workflows BEGIN
-                INSERT INTO workflows_fts(workflows_fts, rowid, filename, name, description, integrations, tags)
-                VALUES ('delete', old.id, old.filename, old.name, old.description, old.integrations, old.tags);
-                INSERT INTO workflows_fts(rowid, filename, name, description, integrations, tags)
-                VALUES (new.id, new.filename, new.name, new.description, new.integrations, new.tags);
+                INSERT INTO workflows_fts(workflows_fts, rowid, filename, name, description, integrations, tags, content)
+                VALUES ('delete', old.id, old.filename, old.name, old.description, old.integrations, old.tags, old.content);
+                INSERT INTO workflows_fts(rowid, filename, name, description, integrations, tags, content)
+                VALUES (new.id, new.filename, new.name, new.description, new.integrations, new.tags, new.content);
             END
         """)
         
@@ -160,6 +162,9 @@ class WorkflowDatabase:
         file_size = os.path.getsize(file_path)
         file_hash = self.get_file_hash(file_path)
         
+        # Extract comprehensive content for FTS
+        content = self.extract_workflow_content(data)
+        
         # Extract basic metadata
         workflow = {
             'filename': filename,
@@ -172,7 +177,8 @@ class WorkflowDatabase:
             'created_at': data.get('createdAt', ''),
             'updated_at': data.get('updatedAt', ''),
             'file_hash': file_hash,
-            'file_size': file_size
+            'file_size': file_size,
+            'content': content # Add content to the workflow dictionary
         }
         
         # Use JSON name if available and meaningful, otherwise use formatted filename
@@ -203,6 +209,94 @@ class WorkflowDatabase:
         workflow['description'] = self.generate_description(workflow, trigger_type, integrations)
         
         return workflow
+    
+    def extract_workflow_content(self, workflow_data: Dict) -> str:
+        """Extract all searchable content from workflow JSON including nodes, parameters, and sticky notes."""
+        content_parts = []
+        
+        # Extract basic workflow info
+        if 'name' in workflow_data:
+            content_parts.append(workflow_data['name'])
+        
+        if 'description' in workflow_data:
+            content_parts.append(workflow_data['description'])
+        
+        # Extract content from nodes
+        if 'nodes' in workflow_data:
+            for node in workflow_data['nodes']:
+                # Node type and name
+                if 'type' in node:
+                    content_parts.append(node['type'])
+                if 'name' in node:
+                    content_parts.append(node['name'])
+                
+                # Node parameters and content
+                if 'parameters' in node:
+                    content_parts.append(self.extract_parameters_content(node['parameters']))
+                
+                # Sticky note content (very important for search)
+                if node.get('type') in ['n8n-nodes-base.stickyNote', 'n8n-nodes-base.stickyNote']:
+                    if 'parameters' in node and 'content' in node['parameters']:
+                        content_parts.append(node['parameters']['content'])
+                
+                # Code node content
+                if node.get('type') in ['n8n-nodes-base.code', 'n8n-nodes-base.function']:
+                    if 'parameters' in node and 'jsCode' in node['parameters']:
+                        content_parts.append(node['parameters']['jsCode'])
+                    if 'parameters' in node and 'functionCode' in node['parameters']:
+                        content_parts.append(node['parameters']['functionCode'])
+                
+                # HTTP Request content
+                if node.get('type') == 'n8n-nodes-base.httpRequest':
+                    if 'parameters' in node:
+                        params = node['parameters']
+                        if 'url' in params:
+                            content_parts.append(str(params['url']))
+                        if 'method' in params:
+                            content_parts.append(str(params['method']))
+                        if 'body' in params:
+                            content_parts.append(str(params['body']))
+                
+                # Form trigger content
+                if node.get('type') == 'n8n-nodes-base.formTrigger':
+                    if 'parameters' in node:
+                        params = node['parameters']
+                        if 'formTitle' in params:
+                            content_parts.append(str(params['formTitle']))
+                        if 'formFields' in params:
+                            content_parts.append(str(params['formFields']))
+        
+        # Extract tags and metadata
+        if 'tags' in workflow_data:
+            for tag in workflow_data['tags']:
+                if isinstance(tag, dict):
+                    if 'name' in tag:
+                        content_parts.append(tag['name'])
+                else:
+                    content_parts.append(str(tag))
+        
+        # Join all content with spaces for better search
+        return ' '.join(filter(None, content_parts))
+    
+    def extract_parameters_content(self, parameters: Dict) -> str:
+        """Recursively extract text content from node parameters."""
+        content_parts = []
+        
+        for key, value in parameters.items():
+            if isinstance(value, str):
+                content_parts.append(value)
+            elif isinstance(value, dict):
+                content_parts.append(self.extract_parameters_content(value))
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        content_parts.append(item)
+                    elif isinstance(item, dict):
+                        content_parts.append(self.extract_parameters_content(item))
+            elif value is not None:
+                content_parts.append(str(value))
+        
+        return ' '.join(filter(None, content_parts))
     
     def analyze_nodes(self, nodes: List[Dict]) -> Tuple[str, set]:
         """Analyze nodes to determine trigger type and integrations."""
@@ -476,8 +570,8 @@ class WorkflowDatabase:
                     INSERT OR REPLACE INTO workflows (
                         filename, name, workflow_id, active, description, trigger_type,
                         complexity, node_count, integrations, tags, created_at, updated_at,
-                        file_hash, file_size, analyzed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        file_hash, file_size, content, analyzed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """, (
                     workflow_data['filename'],
                     workflow_data['name'],
@@ -492,7 +586,8 @@ class WorkflowDatabase:
                     workflow_data['created_at'],
                     workflow_data['updated_at'],
                     workflow_data['file_hash'],
-                    workflow_data['file_size']
+                    workflow_data['file_size'],
+                    workflow_data['content']
                 ))
                 
                 stats['processed'] += 1
@@ -503,10 +598,53 @@ class WorkflowDatabase:
                 continue
         
         conn.commit()
+        
+        # Migrate existing databases to add content column if it doesn't exist
+        self.migrate_database(conn)
+        
         conn.close()
         
         print(f"✅ Indexing complete: {stats['processed']} processed, {stats['skipped']} skipped, {stats['errors']} errors")
         return stats
+    
+    def migrate_database(self, conn):
+        """Migrate existing database schema to add new columns."""
+        try:
+            # Check if content column exists
+            cursor = conn.execute("PRAGMA table_info(workflows)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'content' not in columns:
+                print("Adding content column to workflows table...")
+                conn.execute("ALTER TABLE workflows ADD COLUMN content TEXT")
+                
+                # Re-analyze all workflows to populate content
+                print("Re-analyzing workflows to populate content...")
+                cursor = conn.execute("SELECT filename FROM workflows")
+                filenames = [row[0] for row in cursor.fetchall()]
+                
+                for filename in filenames:
+                    try:
+                        # Get file path
+                        file_path = os.path.join(self.workflows_dir, filename)
+                        if os.path.exists(file_path):
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                            
+                            # Extract content
+                            content = self.extract_workflow_content(data)
+                            
+                            # Update database
+                            conn.execute("UPDATE workflows SET content = ? WHERE filename = ?", (content, filename))
+                    except Exception as e:
+                        print(f"Error updating content for {filename}: {e}")
+                
+                conn.commit()
+                print("Database migration completed successfully!")
+            
+        except Exception as e:
+            print(f"Migration error: {e}")
+            # Continue without failing
     
     def search_workflows(self, query: str = "", trigger_filter: str = "all", 
                         complexity_filter: str = "all", active_only: bool = False,
