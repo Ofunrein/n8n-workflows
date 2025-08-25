@@ -1829,9 +1829,11 @@
     /* Scroll-triggered card animations */
     .workflow-card {
       opacity: 0;
-      transform: translateY(40px) scale(0.95);
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateY(30px) scale(0.98);
+      transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       will-change: transform, opacity;
+      backface-visibility: hidden;
+      transform-style: preserve-3d;
     }
 
     .workflow-card.animate-in {
@@ -1849,19 +1851,35 @@
       animation: left-border-entrance 0.8s ease-out 0.3s both;
     }
 
+    /* Prevent animation glitches during scroll */
+    .workflow-card {
+      transform: translateZ(0); /* Force hardware acceleration */
+      perspective: 1000px;
+    }
+
+    /* Smooth scroll behavior */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Optimize animations for performance */
+    .workflow-card.animate-in {
+      transform: translateY(0) scale(1) translateZ(0);
+    }
+
     /* Staggered animation delays for cards */
     .workflow-card:nth-child(1) { transition-delay: 0ms; }
-    .workflow-card:nth-child(2) { transition-delay: 50ms; }
-    .workflow-card:nth-child(3) { transition-delay: 100ms; }
-    .workflow-card:nth-child(4) { transition-delay: 150ms; }
-    .workflow-card:nth-child(5) { transition-delay: 200ms; }
-    .workflow-card:nth-child(6) { transition-delay: 250ms; }
-    .workflow-card:nth-child(7) { transition-delay: 300ms; }
-    .workflow-card:nth-child(8) { transition-delay: 350ms; }
-    .workflow-card:nth-child(9) { transition-delay: 400ms; }
-    .workflow-card:nth-child(10) { transition-delay: 450ms; }
-    .workflow-card:nth-child(11) { transition-delay: 500ms; }
-    .workflow-card:nth-child(12) { transition-delay: 550ms; }
+    .workflow-card:nth-child(2) { transition-delay: 80ms; }
+    .workflow-card:nth-child(3) { transition-delay: 160ms; }
+    .workflow-card:nth-child(4) { transition-delay: 240ms; }
+    .workflow-card:nth-child(5) { transition-delay: 320ms; }
+    .workflow-card:nth-child(6) { transition-delay: 400ms; }
+    .workflow-card:nth-child(7) { transition-delay: 480ms; }
+    .workflow-card:nth-child(8) { transition-delay: 560ms; }
+    .workflow-card:nth-child(9) { transition-delay: 640ms; }
+    .workflow-card:nth-child(10) { transition-delay: 720ms; }
+    .workflow-card:nth-child(11) { transition-delay: 800ms; }
+    .workflow-card:nth-child(12) { transition-delay: 880ms; }
 
     /* Enhanced State Transitions */
     .state {
@@ -2426,18 +2444,23 @@
         // Use IntersectionObserver for performance-optimized scroll animations
         if ('IntersectionObserver' in window) {
           const observerOptions = {
-            threshold: 0.1, // Trigger when 10% of card is visible
-            rootMargin: '50px 0px', // Start animation 50px before card enters viewport
+            threshold: 0.15, // Trigger when 15% of card is visible for smoother entry
+            rootMargin: '100px 0px', // Start animation 100px before card enters viewport
           };
 
           const cardObserver = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
+              const card = entry.target;
+              
               if (entry.isIntersecting) {
-                entry.target.classList.add('animate-in');
-              } else {
-                // Re-trigger animation when scrolling back up
-                entry.target.classList.remove('animate-in');
+                // Only animate if not already animated
+                if (!card.classList.contains('animate-in')) {
+                  card.classList.add('animate-in');
+                  // Mark as animated to prevent re-triggering
+                  card.setAttribute('data-animated', 'true');
+                }
               }
+              // Don't remove animate-in class - keep cards visible once animated
             });
           }, observerOptions);
 
@@ -2445,6 +2468,9 @@
           const observeCards = () => {
             const cards = document.querySelectorAll('.workflow-card');
             cards.forEach(card => {
+              // Reset animation state for new cards
+              card.classList.remove('animate-in');
+              card.removeAttribute('data-animated');
               cardObserver.observe(card);
             });
           };
@@ -2452,11 +2478,21 @@
           // Initial observation
           observeCards();
 
-                    // Store observer for cleanup
+          // Store observer for cleanup
           this.cardObserver = cardObserver;
+          
+          // Store observeCards function for reuse
+          this.observeCards = observeCards;
         } else {
           // Fallback for older browsers - simple scroll-based animation
           this.setupFallbackScrollAnimations();
+        }
+      }
+
+      refreshScrollAnimations() {
+        // Refresh scroll animations for new content
+        if (this.cardObserver && this.observeCards) {
+          this.observeCards();
         }
       }
 
@@ -2471,11 +2507,11 @@
             const rect = card.getBoundingClientRect();
             const isVisible = rect.top < viewportHeight * 0.8 && rect.bottom > 0;
             
-            if (isVisible) {
+            if (isVisible && !card.classList.contains('animate-in')) {
               card.classList.add('animate-in');
-            } else {
-              card.classList.remove('animate-in');
+              card.setAttribute('data-animated', 'true');
             }
+            // Don't remove animate-in class - keep cards visible once animated
           });
           
           ticking = false;
@@ -3344,12 +3380,8 @@
           });
         });
 
-        // Observe new cards for scroll animations
-        if (this.cardObserver) {
-          this.elements.workflowGrid.querySelectorAll('.workflow-card').forEach(card => {
-            this.cardObserver.observe(card);
-          });
-        }
+        // Refresh scroll animations for new cards
+        this.refreshScrollAnimations();
       }
 
       createWorkflowCard(workflow) {
