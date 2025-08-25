@@ -2163,7 +2163,9 @@
           },
           categories: [],
           categoryMap: new Map(),
-          allWorkflows: [] // Store all workflows for client-side filtering
+          allWorkflows: [], // Store all workflows for client-side filtering
+          enhancedWorkflows: [], // Store enhanced workflows with content for search
+          enhancedStats: null // Store enhanced stats
         };
 
         this.elements = {
@@ -2224,6 +2226,10 @@
         this.setupScrollAnimations();
         this.initMermaid();
         this.handleURLParams(); // Handle URL parameters for category persistence
+        
+        // Load enhanced workflow data for client-side search
+        await this.loadEnhancedWorkflowData();
+        
         await this.loadInitialData();
         
         // Re-enable scrolling after content is loaded
@@ -2256,7 +2262,7 @@
           }
         }
         
-        // Handle filter parameters
+        // Handle other filter parameters
         const trigger = urlParams.get('trigger');
         if (trigger && trigger !== 'all') {
           this.state.filters.trigger = trigger;
@@ -2280,12 +2286,70 @@
             this.elements.activeOnlyFilter.checked = true;
           }
         }
-        
-        console.log('URL parameters loaded:', {
-          category: this.state.selectedCategory,
-          searchQuery: this.state.searchQuery,
-          filters: this.state.filters
+      }
+
+      async loadEnhancedWorkflowData() {
+        try {
+          console.log('Loading enhanced workflow data for client-side search...');
+          
+          // Try to load from vercel_workflows.json (enhanced data with content)
+          const response = await fetch('/vercel_workflows.json');
+          if (response.ok) {
+            const enhancedData = await response.json();
+            console.log(`Loaded enhanced data: ${enhancedData.workflows.length} workflows with content`);
+            
+            // Store enhanced workflows for client-side search
+            this.state.enhancedWorkflows = enhancedData.workflows;
+            this.state.enhancedStats = enhancedData.stats;
+            
+            // Update stats display
+            this.updateStatsDisplay(enhancedData.stats);
+            
+            console.log('Enhanced workflow data loaded successfully');
+            return true;
+          } else {
+            console.log('Enhanced data not available, falling back to API');
+            return false;
+          }
+        } catch (error) {
+          console.log('Error loading enhanced data:', error);
+          return false;
+        }
+      }
+
+      // Client-side search through enhanced workflow data
+      searchEnhancedWorkflows(query) {
+        if (!this.state.enhancedWorkflows || this.state.enhancedWorkflows.length === 0) {
+          console.log('No enhanced workflow data available for search');
+          return [];
+        }
+
+        if (!query || query.trim() === '') {
+          return this.state.enhancedWorkflows;
+        }
+
+        const searchTerms = query.toLowerCase().trim().split(/\s+/);
+        console.log(`Searching for terms: ${searchTerms.join(', ')}`);
+
+        const results = this.state.enhancedWorkflows.filter(workflow => {
+          // Search through all relevant fields
+          const searchableText = [
+            workflow.name || '',
+            workflow.description || '',
+            workflow.filename || '',
+            workflow.trigger_type || '',
+            workflow.complexity || '',
+            workflow.integrations?.join(' ') || '',
+            workflow.tags?.join(' ') || '',
+            workflow.content || '' // This is the key - search through actual workflow content
+          ].join(' ').toLowerCase();
+
+          // Check if ALL search terms are found in the searchable text
+          return searchTerms.every(term => searchableText.includes(term));
         });
+
+        console.log(`Found ${results.length} workflows matching "${query}"`);
+        return results;
       }
 
       initMermaid() {
@@ -2595,8 +2659,82 @@
         clearTimeout(this.searchDebounceTimer);
         this.searchDebounceTimer = setTimeout(() => {
           this.state.currentPage = 1;
-          this.searchWithinCategory();
+          
+          // Use enhanced client-side search if available, otherwise fall back to API search
+          if (this.state.enhancedWorkflows && this.state.enhancedWorkflows.length > 0) {
+            console.log('Using enhanced client-side search');
+            this.performEnhancedSearch();
+          } else {
+            console.log('Enhanced data not available, using API search');
+            this.searchWithinCategory();
+          }
         }, 300);
+      }
+
+      // Enhanced client-side search function
+      performEnhancedSearch() {
+        try {
+          console.log(`Performing enhanced search for: "${this.state.searchQuery}"`);
+          
+          // Show inline loader
+          this.elements.inlineLoader.classList.remove('hidden');
+          
+          // Perform the search
+          const searchResults = this.searchEnhancedWorkflows(this.state.searchQuery);
+          
+          // Apply additional filters
+          let filteredResults = searchResults;
+          
+          // Filter by trigger type
+          if (this.state.filters.trigger !== 'all') {
+            filteredResults = filteredResults.filter(w => w.trigger_type === this.state.filters.trigger);
+          }
+          
+          // Filter by complexity
+          if (this.state.filters.complexity !== 'all') {
+            filteredResults = filteredResults.filter(w => w.complexity === this.state.filters.complexity);
+          }
+          
+          // Filter by active only
+          if (this.state.filters.activeOnly) {
+            filteredResults = filteredResults.filter(w => w.active);
+          }
+          
+          // Filter by category if selected
+          if (this.state.selectedCategory && this.state.selectedCategory !== 'all') {
+            filteredResults = filteredResults.filter(w => {
+              const workflowCategory = this.getWorkflowCategory(w.filename);
+              return workflowCategory === this.state.selectedCategory;
+            });
+          }
+          
+          console.log(`Enhanced search found ${filteredResults.length} workflows after filtering`);
+          
+          // Update state and render results
+          this.state.workflows = filteredResults;
+          this.state.totalCount = filteredResults.length;
+          this.state.currentPage = 1;
+          
+          // Render the results
+          this.renderWorkflows(filteredResults);
+          
+          // Update load more button
+          this.updateLoadMoreButton();
+          
+          // Show appropriate state
+          if (filteredResults.length === 0) {
+            this.showState('no-results');
+          } else {
+            this.showState('content');
+          }
+          
+        } catch (error) {
+          console.error('Error in enhanced search:', error);
+          this.showError('Search failed: ' + error.message);
+        } finally {
+          // Hide inline loader
+          this.elements.inlineLoader.classList.add('hidden');
+        }
       }
 
       async searchWithinCategory() {
