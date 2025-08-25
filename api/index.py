@@ -99,6 +99,18 @@ async def get_category_mappings():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/vercel_workflows.json")
+async def get_vercel_workflows():
+    """Serve the enhanced workflow data for client-side search."""
+    try:
+        vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+        if vercel_data_path.exists():
+            return FileResponse(str(vercel_data_path), media_type="application/json")
+        else:
+            raise HTTPException(status_code=404, detail="vercel_workflows.json not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error serving workflow data: {str(e)}")
+
 @app.get("/api/workflows")
 async def search_workflows(
     q: str = "", 
