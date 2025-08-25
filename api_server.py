@@ -167,6 +167,16 @@ async def get_vercel_data_debug():
             "error": f"Debug endpoint failed: {str(e)}"
         }
 
+@app.get("/api/test-workflow/{filename:path}")
+async def test_workflow_route(filename: str):
+    """Test endpoint to debug workflow route parameter extraction."""
+    return {
+        "filename": filename,
+        "filename_type": type(filename).__name__,
+        "filename_length": len(filename),
+        "message": "Route parameter extracted successfully"
+    }
+
 @app.get("/api/workflows", response_model=SearchResponse)
 async def search_workflows(
     q: str = Query("", description="Search query"),
@@ -252,49 +262,13 @@ async def get_workflow_detail(filename: str):
         raw_json = None
         file_path = None
         
-        # First try: Direct file in API directory (for Vercel deployment)
-        api_file_path = Path(__file__).parent / filename
-        print(f"DEBUG: Checking direct API file path: {api_file_path}")
-        print(f"DEBUG: Direct file exists: {api_file_path.exists()}")
-        
-        if api_file_path.exists():
-            try:
-                print(f"Found workflow file directly in API directory: {api_file_path}")
-                with open(api_file_path, 'r', encoding='utf-8') as f:
-                    raw_json = json.load(f)
-            except Exception as e:
-                print(f"Error loading direct file: {e}")
-        
-        # If not found directly, try workflows subdirectory
-        if raw_json is None:
-            api_workflows_path = Path(__file__).parent / "workflows"
-            print(f"DEBUG: Checking API workflows path: {api_workflows_path}")
-            print(f"DEBUG: Path exists: {api_workflows_path.exists()}")
-            print(f"DEBUG: Current file: {__file__}")
-            print(f"DEBUG: Parent directory: {Path(__file__).parent}")
-            
-            if api_workflows_path.exists():
-            try:
-                json_files = list(api_workflows_path.rglob("*.json"))
-                matching_files = [f for f in json_files if f.name == filename]
-                if matching_files:
-                    file_path = matching_files[0]
-                    print(f"Found workflow file in API directory: {file_path}")
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        raw_json = json.load(f)
-                else:
-                    print(f"Workflow file not found in API directory: {filename}")
-            except Exception as e:
-                print(f"Error loading workflow from API directory: {e}")
-        
-        # If not found in API directory, try vercel_workflows.json
-        if raw_json is None:
-            try:
-                # Try local copy first (in api/ directory)
-                vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
-                if not vercel_data_path.exists():
-                    # Fallback to parent directory
-                    vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
+        # First try: vercel_workflows.json (production priority)
+        try:
+            # Try local copy first (in api/ directory)
+            vercel_data_path = Path(__file__).parent / "vercel_workflows.json"
+            if not vercel_data_path.exists():
+                # Fallback to parent directory
+                vercel_data_path = Path(__file__).parent.parent / "vercel_workflows.json"
             
             if vercel_data_path.exists():
                 print(f"Loading from vercel_workflows.json: {vercel_data_path}")
@@ -321,36 +295,55 @@ async def get_workflow_detail(filename: str):
                 
                 if raw_json is None:
                     print(f"Workflow {filename} not found in vercel_workflows.json")
-                    raise HTTPException(status_code=404, detail=f"Workflow '{filename}' not found in vercel data")
             else:
-                print("vercel_workflows.json not found, trying filesystem")
-                raise Exception("vercel_workflows.json not found")
+                print("vercel_workflows.json not found")
         except Exception as e:
             print(f"Error loading from vercel_workflows.json: {e}")
-            # Fallback to filesystem (local development)
-            possible_paths = [
-                Path(__file__).parent / "workflows",  # Local development
-                Path.cwd() / "workflows",              # Current working directory
-            ]
+        
+        # If not found in vercel data, try filesystem (local development only)
+        if raw_json is None:
+            print("Trying filesystem fallback for local development...")
+            # Try direct file in API directory
+            api_file_path = Path(__file__).parent / filename
+            if api_file_path.exists():
+                try:
+                    print(f"Found workflow file directly in API directory: {api_file_path}")
+                    with open(api_file_path, 'r', encoding='utf-8') as f:
+                        raw_json = json.load(f)
+                except Exception as e:
+                    print(f"Error loading direct file: {e}")
             
-            # Try filesystem
-            for workflows_path in possible_paths:
-                if workflows_path.exists():
+            # If still not found, try workflows subdirectory
+            if raw_json is None:
+                api_workflows_path = Path(__file__).parent / "workflows"
+                if api_workflows_path.exists():
                     try:
-                        json_files = list(workflows_path.rglob("*.json"))
+                        json_files = list(api_workflows_path.rglob("*.json"))
                         matching_files = [f for f in json_files if f.name == filename]
                         if matching_files:
                             file_path = matching_files[0]
-                            print(f"Found workflow file at: {file_path}")
+                            print(f"Found workflow file in API directory: {file_path}")
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 raw_json = json.load(f)
-                            break
+                        else:
+                            print(f"Workflow file not found in API directory: {filename}")
                     except Exception as e:
-                        print(f"Error searching in {workflows_path}: {e}")
-                        continue
-            
-            if raw_json is None:
-                raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found on filesystem and vercel data failed to load")
+                        print(f"Error loading workflow from API directory: {e}")
+        
+        # Continue with filesystem fallback if vercel data didn't work
+        if raw_json is None:
+            try:
+                json_files = list(api_workflows_path.rglob("*.json"))
+                matching_files = [f for f in json_files if f.name == filename]
+                if matching_files:
+                    file_path = matching_files[0]
+                    print(f"Found workflow file in workflows subdirectory: {file_path}")
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        raw_json = json.load(f)
+                else:
+                    print(f"Workflow file not found in workflows subdirectory: {filename}")
+            except Exception as e:
+                print(f"Error loading workflow from workflows subdirectory: {e}")
         
         if raw_json is None:
             raise HTTPException(status_code=404, detail=f"Workflow file '{filename}' not found")
